@@ -55,6 +55,7 @@
         "ghcr",
         "gopath",
         "goquorum",
+        "GRANPA",
         "grpc",
         "grpcs",
         "grpcwebtext",
@@ -155,6 +156,7 @@
         "uuidv",
         "vscc",
         "wasm",
+        "WSPROVIDER",
         "Xdai"
     ],
     "dictionaries": [
