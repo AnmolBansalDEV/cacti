@@ -7,4 +7,4 @@ To build the artifacts, run:
 #### Compile
 
 Run:
-``cargo +nightly contract build`` 
+``cargo +nightly contract build``

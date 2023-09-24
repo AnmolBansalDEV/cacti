@@ -24,6 +24,7 @@ import type {
   CodecHash,
   ExtrinsicEra,
   Index,
+  WeightV2,
 } from "@polkadot/types/interfaces";
 
 import { AddressInfo } from "net";
@@ -89,7 +90,7 @@ test.skip(testCase, async (t: Test) => {
   await plugin.createAPI();
   if (plugin.api) {
     const keyring = createTestKeyring();
-    const CONTRACT_ADDR = "5CwXEMtqyWBNwwPyACF9t9YB3A3HRcKHEYEZhLHKN9i3a5Cz";
+    // const CONTRACT_ADDR = "5CwXEMtqyWBNwwPyACF9t9YB3A3HRcKHEYEZhLHKN9i3a5Cz";
 
     const aliceAccountAddress = keyring.addFromUri("//Alice");
     const bobAccountAddress = keyring.addFromUri("//Bob");
@@ -118,26 +119,37 @@ test.skip(testCase, async (t: Test) => {
     await plugin.registerWebServices(expressApp);
 
     const rawWasm = fs.readFileSync(
-      "packages/cactus-plugin-ledger-connector-polkadot/src/test/rust/fixtures/ink!/publicBulletin/target/ink/public_bulletin.wasm",
+      "packages/cactus-plugin-ledger-connector-polkadot/src/test/rust/fixtures/ink/flipper.wasm",
     );
+
+    const proofSize = 131072;
+    const refTime = 6219235328;
+    const gasLimit: WeightV2 = plugin.api.registry.createType("", {
+      refTime,
+      proofSize,
+    });
 
     const deploy = await plugin.deployContract({
       wasm: rawWasm,
       abi: abi,
-      endowment: 10,
-      gasLimit: 100,
-      params: [0],
+      gasLimit: gasLimit,
+      storageDepositLimit: null,
+      account: aliceAccountAddress,
+      params: [true],
     } as DeployContractInkBytecodeRequest);
 
     t.ok(deploy);
     t.ok(deploy.success);
-
+    if (!deploy.address) {
+      t.fail("contract deployment failed");
+      return;
+    }
     const contractAbi = deploy.contractAbi;
     const writeParams = [0, "test-view", Array(32).fill(0)];
     const contract = new ContractPromise(
       plugin.api,
       contractAbi,
-      CONTRACT_ADDR,
+      deploy.address,
     );
 
     const infoForSigningWriteTransaction = await apiClient.getTransactionInfo({

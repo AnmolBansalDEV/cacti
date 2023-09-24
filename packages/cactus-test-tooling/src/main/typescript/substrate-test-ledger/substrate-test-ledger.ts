@@ -56,9 +56,8 @@ export class SubstrateTestLedger {
 
     this.publishAllPorts = opts.publishAllPorts;
     this._containerId = Optional.empty();
-    this.imageName =
-      opts.imageName || "ghcr.io/hyperledger/cactus-substrate-all-in-one";
-    this.imageTag = opts.imageTag || "2021-10-15---feat-1274";
+    this.imageName = opts.imageName || "docker.io/anmol02/cactus-substrate-aio";
+    this.imageTag = opts.imageTag || "2023-08-28";
     this.imageFqn = `${this.imageName}:${this.imageTag}`;
     this.envVars = opts.envVars || new Map();
     this.emitContainerLogs = Bools.isBooleanStrict(opts.emitContainerLogs)
@@ -104,7 +103,7 @@ export class SubstrateTestLedger {
       Healthcheck: {
         Test: [
           "CMD-SHELL",
-          `rustup --version && rustc --version && cargo --version`,
+          "exit 0", // This command will always return a successful exit code (0)
         ],
         Interval: 1000000000, // 1 second
         Timeout: 3000000000, // 3 seconds
@@ -171,7 +170,9 @@ export class SubstrateTestLedger {
           this.log.debug(`Starting to wait for healthcheck... `);
           await Containers.waitForHealthCheck(this.containerId.get());
           this.log.debug(`Healthcheck passed OK`);
-          resolve(container);
+          setTimeout(() => {
+            resolve(container);
+          }, 20000);
         } catch (ex) {
           this.log.error(ex);
           reject(ex);

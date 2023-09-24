@@ -1,9 +1,8 @@
 import { PrometheusExporter } from "../../../main/typescript/prometheus-exporter/prometheus-exporter";
 import { LogLevelDesc } from "@hyperledger/cactus-common";
 import { SubstrateTestLedger } from "../../../../../cactus-test-tooling/src/main/typescript/substrate-test-ledger/substrate-test-ledger";
-
-import * as abi from "../../rust/fixtures/ink/metadata.json";
-import * as fs from "fs";
+import abi from "../../rust/fixtures/ink/metadata.json";
+import fs from "fs";
 
 import test, { Test } from "tape-promise/tape";
 
@@ -14,6 +13,8 @@ import {
   IPluginLedgerConnectorPolkadotOptions,
   DeployContractInkBytecodeRequest,
 } from "../../../main/typescript";
+import { WeightV2 } from "@polkadot/types/interfaces";
+import { Keyring } from "@polkadot/api";
 
 const testCase = "Instantiate plugin";
 const logLevel: LogLevelDesc = "TRACE";
@@ -43,13 +44,6 @@ test(testCase, async (t: Test) => {
     publishAllPorts: false,
     logLevel: logLevel,
     emitContainerLogs: true,
-    envVars: new Map([
-      ["WORKING_DIR", "/var/www/node-template"],
-      ["CONTAINER_NAME", "contracts-node-template-cactus"],
-      ["PORT", "9944"],
-      ["DOCKER_PORT", "9944"],
-      ["CARGO_HOME", "/var/www/node-template/.cargo"],
-    ]),
   };
 
   const tearDown = async () => {
@@ -68,15 +62,30 @@ test(testCase, async (t: Test) => {
   await plugin.getOrCreateWebServices();
 
   const rawWasm = fs.readFileSync(
-    "packages/cactus-plugin-ledger-connector-polkadot/src/test/rust/fixtures/ink!/publicBulletin/target/ink/public_bulletin.wasm",
+    "packages/cactus-plugin-ledger-connector-polkadot/src/test/rust/fixtures/ink/flipper.wasm",
   );
+
+  const proofSize = 131072;
+  const refTime = 6219235328;
+  if (!plugin.api) {
+    t.fail("failed to create api instance");
+    return;
+  }
+  const gasLimit: WeightV2 = plugin.api.registry.createType("WeightV2", {
+    refTime,
+    proofSize,
+  });
+
+  const keyring = new Keyring({ type: "sr25519" });
+  const alicePair = keyring.createFromUri("//Alice");
 
   const result = plugin.deployContract({
     wasm: rawWasm,
     abi: abi,
-    endowment: 10,
-    gasLimit: 100,
-    params: [0],
+    gasLimit: gasLimit,
+    storageDepositLimit: null,
+    account: alicePair,
+    params: [true],
   } as DeployContractInkBytecodeRequest);
 
   t.ok(result);

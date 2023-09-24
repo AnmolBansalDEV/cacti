@@ -1,16 +1,18 @@
 import { Server } from "http";
 import { Server as SecureServer } from "https";
 import { Express } from "express";
-
 import { ApiPromise } from "@polkadot/api";
 import { WsProvider } from "@polkadot/rpc-provider/ws";
 import { SubmittableExtrinsic } from "@polkadot/api/types";
-import { Hash } from "@polkadot/types/interfaces";
+import { Hash, WeightV2 } from "@polkadot/types/interfaces";
 import { CodePromise, Abi } from "@polkadot/api-contract";
-import { AnyJson } from "@polkadot/types/types";
 import { KeyringPair } from "@polkadot/keyring/types";
-import type { SignerOptions } from "@polkadot/api/submittable/types";
+import type {
+  AddressOrPair,
+  SignerOptions,
+} from "@polkadot/api/submittable/types";
 import { isHex } from "@polkadot/util";
+import type { BN } from "@polkadot/util";
 
 import { PrometheusExporter } from "./prometheus-exporter/prometheus-exporter";
 import {
@@ -74,16 +76,19 @@ interface RunTransactionResponse {
 
 export interface DeployContractInkBytecodeRequest {
   wasm: Uint8Array;
-  abi: AnyJson;
-  endowment: number;
-  gasLimit: number;
+  abi: string | Record<string, unknown>;
+  gasLimit: WeightV2;
+  storageDepositLimit: string | number | bigint | BN | null | undefined;
+  account: AddressOrPair;
   params: Array<unknown>;
+  balance?: number;
 }
 
 interface DeployContractInkBytecodeResponse {
   success: boolean;
   contractCode: CodePromise;
   contractAbi: Abi;
+  address: string | null;
 }
 
 export interface ReadStorageRequest {
@@ -311,28 +316,50 @@ export class PluginLedgerConnectorPolkadot
         this.api.registry.getChainProperties(),
       );
 
-      let contract: SubmittableExtrinsic<"promise"> | null = null;
-
+      let address: string | null = null;
       try {
-        contract =
-          contractCode && contractAbi?.constructors[0]?.method && req.endowment
+        const tx =
+          contractCode && contractAbi?.constructors[0]?.method
             ? contractCode.tx[contractAbi.constructors[0].method](
                 {
                   gasLimit: req.gasLimit,
-                  value: req.endowment,
+                  storageDepositLimit: req.storageDepositLimit,
+                  value: req.balance,
                 },
                 ...req.params,
               )
             : null;
+        if (tx) {
+          // Use Promise to ensure signAndSend completes before continuing
+          const txResult = await new Promise<{
+            success: boolean;
+            address: string | null;
+          }>((resolve, reject) => {
+            tx.signAndSend(
+              req.account,
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-nocheck
+              ({ contract, status }) => {
+                if (status.isInBlock || status.isFinalized) {
+                  address = contract.address.toString();
+                  resolve({ success: true, address });
+                }
+              },
+              (error) => {
+                reject(error);
+              },
+            );
+          });
+          success = txResult.success;
+          address = txResult.address;
+        }
       } catch (e) {
         throw Error(
           `${fnTag} The contract upload and deployment failed. ` +
             `InnerException: ${e}`,
         );
       }
-
-      if (contract) {
-        success = true;
+      if (address) {
         this.prometheusExporter.addCurrentTransaction();
       }
 
@@ -340,10 +367,11 @@ export class PluginLedgerConnectorPolkadot
         success: success,
         contractAbi: contractAbi,
         contractCode: contractCode,
+        address: address,
       };
     } else {
       throw Error(
-        "The operation has failed because the api is not connected to Substrate Node",
+        "The operation has failed because the API is not connected to Substrate Node",
       );
     }
   }
