@@ -337,8 +337,9 @@ export class PluginLedgerConnectorPolkadot
           }>((resolve, reject) => {
             tx.signAndSend(
               req.account,
+              //https://github.com/polkadot-js/api/issues/5722
               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-              // @ts-nocheck
+              // @ts-ignore
               ({ contract, status }) => {
                 if (status.isInBlock || status.isFinalized) {
                   address = contract.address.toString();
