@@ -1,5 +1,4 @@
 import { Express, Request, Response } from "express";
-
 import {
   Logger,
   LoggerProvider,
@@ -17,8 +16,7 @@ import {
 import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
 
 import { PluginLedgerConnectorPolkadot } from "../plugin-ledger-connector-polkadot";
-import { InvokeContractEndpoint as Constants } from "./invoke-contract-endpoint-constants";
-import { TransactionInfoRequest } from "../public-api";
+import OAS from "../../json/openapi.json";
 
 export interface IGetTransactionInfoEndpointOptions {
   logLevel?: LogLevelDesc;
@@ -33,12 +31,11 @@ export class GetTransactionInfoEndpoint implements IWebServiceEndpoint {
     const fnTag = "GetTransactionInfoEndpoint#constructor()";
 
     Checks.truthy(opts, `${fnTag} options`);
-    Checks.truthy(opts.connector, `${fnTag} options.connector`);
+    Checks.truthy(opts.connector, `${fnTag} arg options.connector`);
 
-    this.log = LoggerProvider.getOrCreate({
-      label: this.className,
-      level: opts.logLevel || "INFO",
-    });
+    const level = this.opts.logLevel || "INFO";
+    const label = this.className;
+    this.log = LoggerProvider.getOrCreate({ level, label });
   }
 
   public get className(): string {
@@ -60,19 +57,21 @@ export class GetTransactionInfoEndpoint implements IWebServiceEndpoint {
   }
 
   public getPath(): string {
-    return Constants.HTTP_PATH;
+    return this.oasPath.post["x-hyperledger-cactus"].http.path;
   }
 
   public getVerbLowerCase(): string {
-    return Constants.HTTP_VERB_LOWER_CASE;
+    return this.oasPath.post["x-hyperledger-cactus"].http.verbLowerCase;
   }
 
   public getOperationId(): string {
-    throw new Error("Method not implemented.");
+    return this.oasPath.post.operationId;
   }
 
-  public get oasPath(): string {
-    throw new Error("Method not implemented.");
+  public get oasPath(): (typeof OAS.paths)["/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-transaction-info"] {
+    return OAS.paths[
+      "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-transaction-info"
+    ];
   }
 
   public async registerExpress(
@@ -83,20 +82,20 @@ export class GetTransactionInfoEndpoint implements IWebServiceEndpoint {
   }
 
   async handleRequest(req: Request, res: Response): Promise<void> {
-    const fnTag = "GetTransactionInfo#handleRequest()";
-    this.log.debug(`POST ${this.getPath()}`);
+    const reqTag = `${this.getVerbLowerCase()} - ${this.getPath()}`;
+    this.log.debug(reqTag);
+    const reqBody = req.body;
     try {
-      const reqBody = req.body as TransactionInfoRequest;
       const resBody = await this.opts.connector.obtainTransactionInformation(
         reqBody,
       );
-      res.status(200);
       res.json(resBody);
     } catch (ex) {
-      this.log.error(`${fnTag} failed to serve request`, ex);
-      res.status(500);
-      res.statusMessage = ex as string;
-      res.json({ error: ex });
+      this.log.error(`Crash while serving ${reqTag}`, ex);
+      res.status(500).json({
+        message: "Internal Server Error",
+        error: ex?.stack || ex?.message,
+      });
     }
   }
 }

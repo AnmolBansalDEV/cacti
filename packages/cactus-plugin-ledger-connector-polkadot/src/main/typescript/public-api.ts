@@ -3,7 +3,6 @@ export * from "./generated/openapi/typescript-axios/index";
 export {
   PluginLedgerConnectorPolkadot,
   IPluginLedgerConnectorPolkadotOptions,
-  RunTransactionRequest,
   DeployContractInkBytecodeRequest,
   ReadStorageRequest,
   WriteStorageRequest,

@@ -1,5 +1,4 @@
 import { Express, Request, Response } from "express";
-
 import {
   Logger,
   LoggerProvider,
@@ -7,6 +6,7 @@ import {
   Checks,
   IAsyncProvider,
 } from "@hyperledger/cactus-common";
+
 import {
   IWebServiceEndpoint,
   IExpressRequestHandler,
@@ -17,27 +17,31 @@ import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
 
 import { PluginLedgerConnectorPolkadot } from "../plugin-ledger-connector-polkadot";
 import OAS from "../../json/openapi.json";
-export interface IRunTransactionEndpointOptions {
+
+export interface ISignRawTransactionEndpointOptions {
   logLevel?: LogLevelDesc;
   connector: PluginLedgerConnectorPolkadot;
 }
 
-export class RunTransactionEndpoint implements IWebServiceEndpoint {
+export class SignRawTransactionEndpoint implements IWebServiceEndpoint {
   private readonly log: Logger;
-  public static readonly CLASS_NAME = "RunTransactionEndpoint";
+  public static readonly CLASS_NAME = "SignRawTransactionEndpoint";
 
-  constructor(public readonly opts: IRunTransactionEndpointOptions) {
-    const fnTag = `${this.className}#constructor()`;
+  constructor(public readonly opts: ISignRawTransactionEndpointOptions) {
+    const fnTag = "SignRawTransactionEndpoint#constructor()";
 
-    Checks.truthy(opts, `${fnTag} arg options`);
+    Checks.truthy(opts, `${fnTag} options`);
     Checks.truthy(opts.connector, `${fnTag} arg options.connector`);
+
     const level = this.opts.logLevel || "INFO";
     const label = this.className;
     this.log = LoggerProvider.getOrCreate({ level, label });
   }
+
   public get className(): string {
-    return RunTransactionEndpoint.CLASS_NAME;
+    return SignRawTransactionEndpoint.CLASS_NAME;
   }
+
   getAuthorizationOptionsProvider(): IAsyncProvider<IEndpointAuthzOptions> {
     // TODO: make this an injectable dependency in the constructor
     return {
@@ -64,9 +68,9 @@ export class RunTransactionEndpoint implements IWebServiceEndpoint {
     return this.oasPath.post.operationId;
   }
 
-  public get oasPath(): (typeof OAS.paths)["/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/run-transaction"] {
+  public get oasPath(): (typeof OAS.paths)["/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/sign-raw-transaction"] {
     return OAS.paths[
-      "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/run-transaction"
+      "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/sign-raw-transaction"
     ];
   }
 
@@ -82,7 +86,7 @@ export class RunTransactionEndpoint implements IWebServiceEndpoint {
     this.log.debug(reqTag);
     const reqBody = req.body;
     try {
-      const resBody = await this.opts.connector.transact(reqBody);
+      const resBody = await this.opts.connector.signTransaction(reqBody);
       res.json(resBody);
     } catch (ex) {
       this.log.error(`Crash while serving ${reqTag}`, ex);

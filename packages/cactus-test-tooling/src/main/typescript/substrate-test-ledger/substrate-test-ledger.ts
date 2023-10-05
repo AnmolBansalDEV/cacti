@@ -172,7 +172,7 @@ export class SubstrateTestLedger {
           this.log.debug(`Healthcheck passed OK`);
           setTimeout(() => {
             resolve(container);
-          }, 20000);
+          }, 30000);
         } catch (ex) {
           this.log.error(ex);
           reject(ex);

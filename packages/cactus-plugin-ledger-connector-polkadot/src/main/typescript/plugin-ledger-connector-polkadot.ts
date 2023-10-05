@@ -1,10 +1,10 @@
 import { Server } from "http";
 import { Server as SecureServer } from "https";
 import { Express } from "express";
-import { ApiPromise } from "@polkadot/api";
+import { ApiPromise, Keyring } from "@polkadot/api";
 import { WsProvider } from "@polkadot/rpc-provider/ws";
 import { SubmittableExtrinsic } from "@polkadot/api/types";
-import { Hash, WeightV2 } from "@polkadot/types/interfaces";
+import { ExtrinsicStatus, Hash, WeightV2 } from "@polkadot/types/interfaces";
 import { CodePromise, Abi } from "@polkadot/api-contract";
 import { KeyringPair } from "@polkadot/keyring/types";
 import type {
@@ -12,7 +12,7 @@ import type {
   SignerOptions,
 } from "@polkadot/api/submittable/types";
 import { isHex } from "@polkadot/util";
-import type { BN } from "@polkadot/util";
+import { BN } from "@polkadot/util";
 
 import { PrometheusExporter } from "./prometheus-exporter/prometheus-exporter";
 import {
@@ -47,6 +47,12 @@ import {
 } from "@hyperledger/cactus-common";
 import { promisify } from "util";
 import {
+  RawTransactionRequest,
+  RawTransactionResponse,
+  RunTransactionRequest,
+  RunTransactionResponse,
+  SignRawTransactionRequest,
+  SignRawTransactionResponse,
   TransactionInfoRequest,
   TransactionInfoResponse,
 } from "./generated/openapi/typescript-axios/index";
@@ -54,6 +60,19 @@ import {
   GetTransactionInfoEndpoint,
   IGetTransactionInfoEndpointOptions,
 } from "./web-services/get-transaction-info-endpoint";
+
+import {
+  RunTransactionEndpoint,
+  IRunTransactionEndpointOptions,
+} from "./web-services/run-transaction-endpoint";
+import {
+  GetRawTransactionEndpoint,
+  IGetRawTransactionEndpointOptions,
+} from "./web-services/get-raw-transaction-endpoint";
+import {
+  ISignRawTransactionEndpointOptions,
+  SignRawTransactionEndpoint,
+} from "./web-services/sign-raw-transaction-endpoint";
 
 export interface IPluginLedgerConnectorPolkadotOptions
   extends ICactusPluginOptions {
@@ -63,15 +82,6 @@ export interface IPluginLedgerConnectorPolkadotOptions
   wsProviderUrl: string;
   instanceId: string;
   autoConnect?: boolean;
-}
-
-export interface RunTransactionRequest {
-  transferSubmittable: SubmittableExtrinsic<"promise">;
-}
-
-interface RunTransactionResponse {
-  success: boolean;
-  hash: Hash | undefined;
 }
 
 export interface DeployContractInkBytecodeRequest {
@@ -125,7 +135,8 @@ export class PluginLedgerConnectorPolkadot
       RunTransactionResponse
     >,
     ICactusPlugin,
-    IPluginWebService {
+    IPluginWebService
+{
   public static readonly CLASS_NAME = "PluginLedgerConnectorPolkadot";
   private readonly instanceId: string;
   private readonly log: Logger;
@@ -215,6 +226,33 @@ export class PluginLedgerConnectorPolkadot
       const endpoint = new GetTransactionInfoEndpoint(opts);
       endpoints.push(endpoint);
     }
+    {
+      const opts: IRunTransactionEndpointOptions = {
+        connector: this,
+        logLevel: this.opts.logLevel,
+      };
+
+      const endpoint = new RunTransactionEndpoint(opts);
+      endpoints.push(endpoint);
+    }
+    {
+      const opts: IGetRawTransactionEndpointOptions = {
+        connector: this,
+        logLevel: this.opts.logLevel,
+      };
+
+      const endpoint = new GetRawTransactionEndpoint(opts);
+      endpoints.push(endpoint);
+    }
+    {
+      const opts: ISignRawTransactionEndpointOptions = {
+        connector: this,
+        logLevel: this.opts.logLevel,
+      };
+
+      const endpoint = new SignRawTransactionEndpoint(opts);
+      endpoints.push(endpoint);
+    }
 
     this.endpoints = endpoints;
 
@@ -253,16 +291,83 @@ export class PluginLedgerConnectorPolkadot
     return;
   }
 
-  public async getConsensusAlgorithmFamily(): Promise<
-    ConsensusAlgorithmFamily
-  > {
+  public async getConsensusAlgorithmFamily(): Promise<ConsensusAlgorithmFamily> {
     return ConsensusAlgorithmFamily.Stake;
   }
 
   public async hasTransactionFinality(): Promise<boolean> {
-    const currentConsensusAlgorithmFamily = await this.getConsensusAlgorithmFamily();
+    const currentConsensusAlgorithmFamily =
+      await this.getConsensusAlgorithmFamily();
 
     return consensusHasTransactionFinality(currentConsensusAlgorithmFamily);
+  }
+
+  public rawTransaction(req: RawTransactionRequest): RawTransactionResponse {
+    const fnTag = `${this.className}#rawTx()`;
+    Checks.truthy(req, `${fnTag} req`);
+    if (!this.api) {
+      throw Error(
+        "The operation has failed because the API is not connected to Substrate Node",
+      );
+    }
+    try {
+      const accountAddress = req.to;
+      const transferValue = req.value;
+      const rawTransaction = this.api.tx["balances"]["transfer"](
+        accountAddress,
+        transferValue,
+      );
+      const responseContainer = {
+        response_data: {
+          rawTransaction: rawTransaction.toHex(),
+        },
+        succeeded: true,
+        message: "obtainRawTransaction",
+        error: null,
+      };
+
+      const response: RawTransactionResponse = {
+        responseContainer: responseContainer,
+      };
+      return response;
+    } catch (e) {
+      throw Error(
+        `${fnTag} Obtaining raw transaction has failed. ` +
+          `InnerException: ${e}`,
+      );
+    }
+  }
+
+  public async signTransaction(
+    req: SignRawTransactionRequest,
+  ): Promise<SignRawTransactionResponse> {
+    const fnTag = `${this.className}#signTx()`;
+    Checks.truthy(req, `${fnTag} req`);
+    if (!this.api) {
+      throw Error(
+        "The operation has failed because the API is not connected to Substrate Node",
+      );
+    }
+    try {
+      const keyring = new Keyring({ type: "sr25519" });
+      const accountPair = keyring.createFromUri(req.mnemonic);
+      const deserializedRawTransaction = this.api.tx(req.rawTransaction);
+      const signedTransaction = await deserializedRawTransaction.signAsync(
+        accountPair,
+        req.signingOptions,
+      );
+      const serializedSignedTransaction = signedTransaction.toHex();
+      const response: SignRawTransactionResponse = {
+        success: true,
+        signedTransaction: serializedSignedTransaction,
+      };
+      return response;
+    } catch (e) {
+      throw Error(
+        `${fnTag} signing raw transaction has failed. ` +
+          `InnerException: ${e}`,
+      );
+    }
   }
 
   // Perform a monetary transaction to Polkadot;
@@ -272,11 +377,16 @@ export class PluginLedgerConnectorPolkadot
   ): Promise<RunTransactionResponse> {
     const fnTag = `${this.className}#transact()`;
     let success = false;
-    let hash: Hash | undefined;
+    let txHash: Hash | undefined;
 
     Checks.truthy(req, `${fnTag} req`);
-
-    const signature = req.transferSubmittable.signature.toHex();
+    if (!this.api) {
+      throw Error(
+        "The operation has failed because the API is not connected to Substrate Node",
+      );
+    }
+    const deserializedTransaction = this.api.tx(req.transferSubmittable);
+    const signature = deserializedTransaction.signature.toHex();
     if (!signature) {
       throw Error(`${fnTag} Transaction is not signed. `);
     }
@@ -286,18 +396,20 @@ export class PluginLedgerConnectorPolkadot
     }
 
     try {
-      if (this.api) {
-        hash = await req.transferSubmittable.send();
-        success = true;
-        this.prometheusExporter.addCurrentTransaction();
-      }
+      const status: ExtrinsicStatus =
+        await this.api.rpc.author.submitAndWatchExtrinsic(
+          deserializedTransaction,
+        );
+      txHash = status.hash;
+      success = true;
+      this.prometheusExporter.addCurrentTransaction();
     } catch (e) {
       throw Error(
         `${fnTag} The transaction submission failed. ` + `InnerException: ${e}`,
       );
     }
 
-    return { success, hash };
+    return { success, hash: txHash };
   }
 
   // Deploy and instantiate a smart contract in Polkadot

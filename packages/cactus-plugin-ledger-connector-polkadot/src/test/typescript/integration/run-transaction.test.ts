@@ -1,36 +1,26 @@
 import { PrometheusExporter } from "../../../main/typescript/prometheus-exporter/prometheus-exporter";
 import { AddressInfo } from "net";
-import { isHex } from "@polkadot/util";
-
 import type { SignerOptions } from "@polkadot/api/submittable/types";
 import type {
   CodecHash,
   ExtrinsicEra,
   Index,
 } from "@polkadot/types/interfaces";
-import { createTestKeyring } from "@polkadot/keyring/testing";
 import { Configuration } from "@hyperledger/cactus-core-api";
-//import { ApiPromise, Keyring } from "@polkadot/api";
-
+import { Keyring } from "@polkadot/api";
 import http from "http";
 import express from "express";
 import test, { Test } from "tape-promise/tape";
-
 import { pruneDockerAllIfGithubAction } from "@hyperledger/cactus-test-tooling";
-
 import {
   IListenOptions,
   LogLevelDesc,
   Servers,
 } from "@hyperledger/cactus-common";
 import { SubstrateTestLedger } from "../../../../../cactus-test-tooling/src/main/typescript/substrate-test-ledger/substrate-test-ledger";
-
 import {
   PluginLedgerConnectorPolkadot,
   IPluginLedgerConnectorPolkadotOptions,
-  TransactionInfoRequest,
-  TransactionInfoResponse,
-  RunTransactionRequest,
   DefaultApi as PolkadotApi,
 } from "../../../main/typescript/public-api";
 
@@ -49,7 +39,7 @@ test("BEFORE " + testCase, async (t: Test) => {
   t.end();
 });
 
-test.skip(testCase, async (t: Test) => {
+test(testCase, async (t: Test) => {
   const connectorOptions: IPluginLedgerConnectorPolkadotOptions = {
     logLevel: logLevel,
     prometheusExporter: prometheus,
@@ -62,13 +52,6 @@ test.skip(testCase, async (t: Test) => {
     publishAllPorts: false,
     logLevel: logLevel,
     emitContainerLogs: true,
-    envVars: new Map([
-      ["WORKING_DIR", "/var/www/node-template"],
-      ["CONTAINER_NAME", "contracts-node-template-cactus"],
-      ["PORT", "9944"],
-      ["DOCKER_PORT", "9944"],
-      ["CARGO_HOME", "/var/www/node-template/.cargo"],
-    ]),
   };
 
   const tearDown = async () => {
@@ -85,10 +68,9 @@ test.skip(testCase, async (t: Test) => {
   const plugin = new PluginLedgerConnectorPolkadot(connectorOptions);
   await plugin.createAPI();
 
-  const keyring = createTestKeyring();
-  const ALICE = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
-  const BOB = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
-  const aliceAccountAddress = keyring.getPair(ALICE);
+  const keyring = new Keyring({ type: "sr25519" });
+  const alicePair = keyring.createFromUri("//Alice");
+  const bobPair = keyring.createFromUri("//Bob");
 
   const expressApp = express();
 
@@ -112,13 +94,16 @@ test.skip(testCase, async (t: Test) => {
 
   await plugin.getOrCreateWebServices();
   await plugin.registerWebServices(expressApp);
-
+  if (!plugin.api) {
+    t.fail("failed to create api instance");
+    return;
+  }
   const infoForSigningTransaction = await apiClient.getTransactionInfo({
-    accountAddress: aliceAccountAddress,
-    transactionExpiration: 50,
-  } as TransactionInfoRequest);
+    accountAddress: alicePair,
+    transactionExpiration: 500,
+  });
   t.equal(infoForSigningTransaction.status, 200);
-  const response: TransactionInfoResponse = infoForSigningTransaction.data;
+  const response = infoForSigningTransaction.data;
   t.ok(response);
   const nonce = response.responseContainer.response_data.nonce as Index;
   t.ok(nonce);
@@ -134,27 +119,31 @@ test.skip(testCase, async (t: Test) => {
     era: era,
   };
 
-  const transaction = plugin.api?.tx["balances"]["transfer"](BOB, 10);
-  const signedTransaction = await transaction?.signAsync(
-    aliceAccountAddress,
-    signingOptions,
-  );
-  t.comment(`Signed transaction is: ${signedTransaction}`);
+  const transaction = await apiClient.getRawTransaction({
+    to: bobPair.address,
+    value: 20,
+  });
+  const rawTransaction =
+    transaction.data.responseContainer.response_data.rawTransaction;
 
-  t.ok(signedTransaction);
-  const signature = signedTransaction?.signature.toHex();
+  const signedTransactionResponse = await apiClient.signRawTransaction({
+    rawTransaction: rawTransaction,
+    mnemonic: "//Alice",
+    signingOptions: signingOptions,
+  });
+  t.ok(signedTransactionResponse.data.success);
+  t.ok(signedTransactionResponse.data.signedTransaction);
+  t.comment(`Signed transaction is: ${rawTransaction}`);
 
-  if (signature) {
-    t.assert(isHex(signature));
-  }
-
-  const result = await plugin.transact({
+  t.ok(rawTransaction);
+  const signedTransaction = signedTransactionResponse.data.signedTransaction;
+  const TransactionDetails = await apiClient.runTransaction({
     transferSubmittable: signedTransaction,
-  } as RunTransactionRequest);
-
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  t.ok(result);
-  t.ok(result.success);
-  t.ok(result.hash);
+  });
+  t.equal(TransactionDetails.status, 200);
+  const transactionResponse = TransactionDetails.data;
+  t.ok(transactionResponse);
+  t.ok(transactionResponse.success);
+  t.ok(transactionResponse.hash);
+  t.end();
 });

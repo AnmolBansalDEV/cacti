@@ -13,14 +13,168 @@
  */
 
 
-import { Configuration } from './configuration';
-import globalAxios, { AxiosPromise, AxiosInstance } from 'axios';
+import type { Configuration } from './configuration';
+import type { AxiosPromise, AxiosInstance, AxiosRequestConfig } from 'axios';
+import globalAxios from 'axios';
 // Some imports not used depending on template conditions
 // @ts-ignore
 import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction } from './common';
+import type { RequestArgs } from './base';
 // @ts-ignore
-import { BASE_PATH, COLLECTION_FORMATS, RequestArgs, BaseAPI, RequiredError } from './base';
+import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError } from './base';
 
+/**
+ * 
+ * @export
+ * @interface RawTransactionRequest
+ */
+export interface RawTransactionRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof RawTransactionRequest
+     */
+    'to': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof RawTransactionRequest
+     */
+    'value': number;
+}
+/**
+ * 
+ * @export
+ * @interface RawTransactionResponse
+ */
+export interface RawTransactionResponse {
+    /**
+     * 
+     * @type {RawTransactionResponseResponseContainer}
+     * @memberof RawTransactionResponse
+     */
+    'responseContainer': RawTransactionResponseResponseContainer;
+}
+/**
+ * 
+ * @export
+ * @interface RawTransactionResponseData
+ */
+export interface RawTransactionResponseData {
+    /**
+     * 
+     * @type {string}
+     * @memberof RawTransactionResponseData
+     */
+    'rawTransaction': string;
+}
+/**
+ * 
+ * @export
+ * @interface RawTransactionResponseResponseContainer
+ */
+export interface RawTransactionResponseResponseContainer {
+    /**
+     * 
+     * @type {RawTransactionResponseData}
+     * @memberof RawTransactionResponseResponseContainer
+     */
+    'response_data': RawTransactionResponseData;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof RawTransactionResponseResponseContainer
+     */
+    'succeeded': boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof RawTransactionResponseResponseContainer
+     */
+    'message': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof RawTransactionResponseResponseContainer
+     */
+    'error': string | null;
+}
+/**
+ * 
+ * @export
+ * @interface RunTransactionRequest
+ */
+export interface RunTransactionRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof RunTransactionRequest
+     */
+    'transferSubmittable': string;
+}
+/**
+ * 
+ * @export
+ * @interface RunTransactionResponse
+ */
+export interface RunTransactionResponse {
+    /**
+     * 
+     * @type {boolean}
+     * @memberof RunTransactionResponse
+     */
+    'success': boolean;
+    /**
+     * 
+     * @type {object}
+     * @memberof RunTransactionResponse
+     */
+    'hash'?: object;
+}
+/**
+ * 
+ * @export
+ * @interface SignRawTransactionRequest
+ */
+export interface SignRawTransactionRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof SignRawTransactionRequest
+     */
+    'rawTransaction': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof SignRawTransactionRequest
+     */
+    'mnemonic': string;
+    /**
+     * 
+     * @type {object}
+     * @memberof SignRawTransactionRequest
+     */
+    'signingOptions'?: object;
+}
+/**
+ * 
+ * @export
+ * @interface SignRawTransactionResponse
+ */
+export interface SignRawTransactionResponse {
+    /**
+     * 
+     * @type {boolean}
+     * @memberof SignRawTransactionResponse
+     */
+    'success': boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof SignRawTransactionResponse
+     */
+    'signedTransaction': string;
+}
 /**
  * 
  * @export
@@ -32,13 +186,13 @@ export interface TransactionInfoRequest {
      * @type {object}
      * @memberof TransactionInfoRequest
      */
-    accountAddress: object;
+    'accountAddress': object;
     /**
      * 
      * @type {number}
      * @memberof TransactionInfoRequest
      */
-    transactionExpiration: number | null;
+    'transactionExpiration': number | null;
 }
 /**
  * 
@@ -51,7 +205,7 @@ export interface TransactionInfoResponse {
      * @type {TransactionInfoResponseResponseContainer}
      * @memberof TransactionInfoResponse
      */
-    responseContainer: TransactionInfoResponseResponseContainer;
+    'responseContainer': TransactionInfoResponseResponseContainer;
 }
 /**
  * 
@@ -64,19 +218,19 @@ export interface TransactionInfoResponseData {
      * @type {object}
      * @memberof TransactionInfoResponseData
      */
-    nonce: object;
+    'nonce': object;
     /**
      * 
      * @type {object}
      * @memberof TransactionInfoResponseData
      */
-    blockHash: object;
+    'blockHash': object;
     /**
      * 
      * @type {object}
      * @memberof TransactionInfoResponseData
      */
-    era: object | null;
+    'era': object | null;
 }
 /**
  * 
@@ -89,25 +243,25 @@ export interface TransactionInfoResponseResponseContainer {
      * @type {TransactionInfoResponseData}
      * @memberof TransactionInfoResponseResponseContainer
      */
-    response_data: TransactionInfoResponseData;
+    'response_data': TransactionInfoResponseData;
     /**
      * 
      * @type {boolean}
      * @memberof TransactionInfoResponseResponseContainer
      */
-    succeeded: boolean;
+    'succeeded': boolean;
     /**
      * 
      * @type {string}
      * @memberof TransactionInfoResponseResponseContainer
      */
-    message: string;
+    'message': string;
     /**
      * 
      * @type {string}
      * @memberof TransactionInfoResponseResponseContainer
      */
-    error: string | null;
+    'error': string | null;
 }
 
 /**
@@ -122,7 +276,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getPrometheusExporterMetricsV1: async (options: any = {}): Promise<RequestArgs> => {
+        getPrometheusExporterMetricsV1: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-prometheus-exporter-metrics`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -137,7 +291,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
 
 
     
-            setSearchParams(localVarUrlObj, localVarQueryParameter, options.query);
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
@@ -148,12 +302,46 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
-         * @summary Get the necessary Transaction Info
+         * @summary Get raw unsigned transaction
+         * @param {RawTransactionRequest} [rawTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getRawTransaction: async (rawTransactionRequest?: RawTransactionRequest, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-raw-transaction`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(rawTransactionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get the necessary Transaction Info for a account
          * @param {TransactionInfoRequest} [transactionInfoRequest] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getTransactionInfo: async (transactionInfoRequest?: TransactionInfoRequest, options: any = {}): Promise<RequestArgs> => {
+        getTransactionInfo: async (transactionInfoRequest?: TransactionInfoRequest, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-transaction-info`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -162,7 +350,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 baseOptions = configuration.baseOptions;
             }
 
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
@@ -170,10 +358,78 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
     
             localVarHeaderParameter['Content-Type'] = 'application/json';
 
-            setSearchParams(localVarUrlObj, localVarQueryParameter, options.query);
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(transactionInfoRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Executes a transaction on a Polkadot ledger
+         * @param {RunTransactionRequest} [runTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        runTransaction: async (runTransactionRequest?: RunTransactionRequest, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/run-transaction`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(runTransactionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary sign the raw transaction
+         * @param {SignRawTransactionRequest} [signRawTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        signRawTransaction: async (signRawTransactionRequest?: SignRawTransactionRequest, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/sign-raw-transaction`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(signRawTransactionRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -196,19 +452,52 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getPrometheusExporterMetricsV1(options?: any): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async getPrometheusExporterMetricsV1(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getPrometheusExporterMetricsV1(options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
         /**
          * 
-         * @summary Get the necessary Transaction Info
+         * @summary Get raw unsigned transaction
+         * @param {RawTransactionRequest} [rawTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getRawTransaction(rawTransactionRequest?: RawTransactionRequest, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<RawTransactionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getRawTransaction(rawTransactionRequest, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * 
+         * @summary Get the necessary Transaction Info for a account
          * @param {TransactionInfoRequest} [transactionInfoRequest] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getTransactionInfo(transactionInfoRequest?: TransactionInfoRequest, options?: any): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TransactionInfoResponse>> {
+        async getTransactionInfo(transactionInfoRequest?: TransactionInfoRequest, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TransactionInfoResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getTransactionInfo(transactionInfoRequest, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * 
+         * @summary Executes a transaction on a Polkadot ledger
+         * @param {RunTransactionRequest} [runTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async runTransaction(runTransactionRequest?: RunTransactionRequest, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<RunTransactionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.runTransaction(runTransactionRequest, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * 
+         * @summary sign the raw transaction
+         * @param {SignRawTransactionRequest} [signRawTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async signRawTransaction(signRawTransactionRequest?: SignRawTransactionRequest, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SignRawTransactionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.signRawTransaction(signRawTransactionRequest, options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
     }
@@ -232,13 +521,43 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          * 
-         * @summary Get the necessary Transaction Info
+         * @summary Get raw unsigned transaction
+         * @param {RawTransactionRequest} [rawTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getRawTransaction(rawTransactionRequest?: RawTransactionRequest, options?: any): AxiosPromise<RawTransactionResponse> {
+            return localVarFp.getRawTransaction(rawTransactionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get the necessary Transaction Info for a account
          * @param {TransactionInfoRequest} [transactionInfoRequest] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
         getTransactionInfo(transactionInfoRequest?: TransactionInfoRequest, options?: any): AxiosPromise<TransactionInfoResponse> {
             return localVarFp.getTransactionInfo(transactionInfoRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Executes a transaction on a Polkadot ledger
+         * @param {RunTransactionRequest} [runTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        runTransaction(runTransactionRequest?: RunTransactionRequest, options?: any): AxiosPromise<RunTransactionResponse> {
+            return localVarFp.runTransaction(runTransactionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary sign the raw transaction
+         * @param {SignRawTransactionRequest} [signRawTransactionRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        signRawTransaction(signRawTransactionRequest?: SignRawTransactionRequest, options?: any): AxiosPromise<SignRawTransactionResponse> {
+            return localVarFp.signRawTransaction(signRawTransactionRequest, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -257,20 +576,56 @@ export class DefaultApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof DefaultApi
      */
-    public getPrometheusExporterMetricsV1(options?: any) {
+    public getPrometheusExporterMetricsV1(options?: AxiosRequestConfig) {
         return DefaultApiFp(this.configuration).getPrometheusExporterMetricsV1(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @summary Get the necessary Transaction Info
+     * @summary Get raw unsigned transaction
+     * @param {RawTransactionRequest} [rawTransactionRequest] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public getRawTransaction(rawTransactionRequest?: RawTransactionRequest, options?: AxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getRawTransaction(rawTransactionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get the necessary Transaction Info for a account
      * @param {TransactionInfoRequest} [transactionInfoRequest] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApi
      */
-    public getTransactionInfo(transactionInfoRequest?: TransactionInfoRequest, options?: any) {
+    public getTransactionInfo(transactionInfoRequest?: TransactionInfoRequest, options?: AxiosRequestConfig) {
         return DefaultApiFp(this.configuration).getTransactionInfo(transactionInfoRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Executes a transaction on a Polkadot ledger
+     * @param {RunTransactionRequest} [runTransactionRequest] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public runTransaction(runTransactionRequest?: RunTransactionRequest, options?: AxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).runTransaction(runTransactionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary sign the raw transaction
+     * @param {SignRawTransactionRequest} [signRawTransactionRequest] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public signRawTransaction(signRawTransactionRequest?: SignRawTransactionRequest, options?: AxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).signRawTransaction(signRawTransactionRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
