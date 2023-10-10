@@ -4,7 +4,7 @@ import { Express } from "express";
 import { ApiPromise, Keyring } from "@polkadot/api";
 import { WsProvider } from "@polkadot/rpc-provider/ws";
 import { SubmittableExtrinsic } from "@polkadot/api/types";
-import { ExtrinsicStatus, Hash, WeightV2 } from "@polkadot/types/interfaces";
+import { Hash, WeightV2 } from "@polkadot/types/interfaces";
 import { CodePromise, Abi } from "@polkadot/api-contract";
 import { KeyringPair } from "@polkadot/keyring/types";
 import type {
@@ -13,7 +13,6 @@ import type {
 } from "@polkadot/api/submittable/types";
 import { isHex } from "@polkadot/util";
 import { BN } from "@polkadot/util";
-
 import { PrometheusExporter } from "./prometheus-exporter/prometheus-exporter";
 import {
   GetPrometheusExporterMetricsEndpointV1,
@@ -55,6 +54,9 @@ import {
   SignRawTransactionResponse,
   TransactionInfoRequest,
   TransactionInfoResponse,
+  Web3SigningCredentialCactusKeychainRef,
+  Web3SigningCredentialMnemonicString,
+  Web3SigningCredentialType,
 } from "./generated/openapi/typescript-axios/index";
 import {
   GetTransactionInfoEndpoint,
@@ -77,7 +79,7 @@ import {
 export interface IPluginLedgerConnectorPolkadotOptions
   extends ICactusPluginOptions {
   logLevel?: LogLevelDesc;
-  pluginRegistry?: PluginRegistry;
+  pluginRegistry: PluginRegistry;
   prometheusExporter?: PrometheusExporter;
   wsProviderUrl: string;
   instanceId: string;
@@ -140,6 +142,7 @@ export class PluginLedgerConnectorPolkadot
   public static readonly CLASS_NAME = "PluginLedgerConnectorPolkadot";
   private readonly instanceId: string;
   private readonly log: Logger;
+  private readonly pluginRegistry: PluginRegistry;
   public wsProvider: WsProvider | undefined;
   public api: ApiPromise | undefined;
   public prometheusExporter: PrometheusExporter;
@@ -157,12 +160,13 @@ export class PluginLedgerConnectorPolkadot
   constructor(public readonly opts: IPluginLedgerConnectorPolkadotOptions) {
     const fnTag = `${this.className}#constructor()`;
     Checks.truthy(opts, `${fnTag} arg options`);
+    Checks.truthy(opts.pluginRegistry, `${fnTag} options.pluginRegistry`);
     if (typeof opts.logLevel !== "undefined") {
       Checks.truthy(opts.logLevel, `${fnTag} options.logLevelDesc`);
     }
     Checks.truthy(opts.wsProviderUrl, `${fnTag} options.wsProviderUrl`);
     Checks.truthy(opts.instanceId, `${fnTag} options.instanceId`);
-
+    this.pluginRegistry = opts.pluginRegistry;
     this.prometheusExporter =
       opts.prometheusExporter ||
       new PrometheusExporter({ pollingIntervalInMin: 1 });
@@ -371,13 +375,141 @@ export class PluginLedgerConnectorPolkadot
   }
 
   // Perform a monetary transaction to Polkadot;
-  // Should be changed to using api.rpc.author.submitAndWatchExtrinsic (which receives a signed extrinsic)
   public async transact(
     req: RunTransactionRequest,
   ): Promise<RunTransactionResponse> {
     const fnTag = `${this.className}#transact()`;
+    switch (req.web3SigningCredential.type) {
+      case Web3SigningCredentialType.CactusKeychainRef: {
+        return this.transactCactusKeychainRef(req);
+      }
+      case Web3SigningCredentialType.MnemonicString: {
+        return this.transactMnemonicString(req);
+      }
+      case Web3SigningCredentialType.None: {
+        if (req.transactionConfig.transferSubmittable) {
+          return this.transactSigned(req);
+        } else {
+          throw new Error(
+            `${fnTag} Expected pre-signed raw transaction ` +
+              ` since signing credential is specified as` +
+              `Web3SigningCredentialType.NONE`,
+          );
+        }
+      }
+      default: {
+        throw new Error(
+          `${fnTag} Unrecognized Web3SigningCredentialType: ` +
+            `${req.web3SigningCredential.type} Supported ones are: ` +
+            `${Object.values(Web3SigningCredentialType).join(";")}`,
+        );
+      }
+    }
+  }
+  public async transactCactusKeychainRef(
+    req: RunTransactionRequest,
+  ): Promise<RunTransactionResponse> {
+    const fnTag = `${this.className}#transactCactusKeychainRef()`;
+    const { transactionConfig, web3SigningCredential } = req;
+    const { keychainEntryKey, keychainId } =
+      web3SigningCredential as Web3SigningCredentialCactusKeychainRef;
+
+    // locate the keychain plugin that has access to the keychain backend
+    // denoted by the keychainID from the request.
+    const keychainPlugin = this.pluginRegistry.findOneByKeychainId(keychainId);
+
+    Checks.truthy(keychainPlugin, `${fnTag} keychain for ID:"${keychainId}"`);
+
+    // Now use the found keychain plugin to actually perform the lookup of
+    // the private key that we need to run the transaction.
+    const mnemonic = await keychainPlugin?.get(keychainEntryKey);
+    return this.transactMnemonicString({
+      web3SigningCredential: {
+        type: Web3SigningCredentialType.MnemonicString,
+        mnemonic,
+      },
+      transactionConfig,
+    });
+  }
+  public async transactMnemonicString(
+    req: RunTransactionRequest,
+  ): Promise<RunTransactionResponse> {
+    const fnTag = `${this.className}#transactMnemonicString()`;
+    Checks.truthy(req, `${fnTag} req`);
+    if (!this.api) {
+      throw Error(
+        "The operation has failed because the API is not connected to Substrate Node",
+      );
+    }
+    const { transactionConfig, web3SigningCredential } = req;
+    const { mnemonic } =
+      web3SigningCredential as Web3SigningCredentialMnemonicString;
     let success = false;
-    let txHash: Hash | undefined;
+    let transactionHash: string | undefined;
+    let blockHash: string | undefined;
+    try {
+      const keyring = new Keyring({ type: "sr25519" });
+      const accountPair = keyring.createFromUri(mnemonic);
+      const accountAddress = transactionConfig.to;
+      const transferValue = transactionConfig.value;
+      const txResult = await new Promise<{
+        success: boolean;
+        transactionHash: string;
+        blockhash: string;
+      }>((resolve, reject) =>
+        this.api?.tx.balances
+          .transfer(accountAddress, transferValue)
+          .signAndSend(accountPair, ({ events = [], status, txHash }) => {
+            if (status.isInBlock) {
+              // Check if the system.ExtrinsicSuccess event is present
+              const successEvent = events.find(
+                ({ event: { section, method } }) =>
+                  section === "system" && method === "ExtrinsicSuccess",
+              );
+              if (successEvent) {
+                resolve({
+                  success: true,
+                  blockhash: status.asInBlock.toHex(),
+                  transactionHash: txHash.toHex(),
+                });
+              } else {
+                reject("transaction not successful");
+                throw Error(
+                  `Transaction Failed: The expected system.ExtrinsicSuccess event was not detected.` +
+                    `events emitted are ${events}`,
+                );
+              }
+            }
+          }),
+      );
+      success = txResult.success;
+      transactionHash = txResult.transactionHash;
+      blockHash = txResult.blockhash;
+    } catch (e) {
+      throw Error(`${fnTag} The transaction failed. ` + `InnerException: ${e}`);
+    }
+    return {
+      success,
+      txHash: transactionHash,
+      blockHash: blockHash,
+    };
+  }
+  public async transactSigned(
+    req: RunTransactionRequest,
+  ): Promise<RunTransactionResponse> {
+    const fnTag = `${this.className}#transactSigned()`;
+    Checks.truthy(
+      req.transactionConfig.transferSubmittable,
+      `${fnTag}:req.transactionConfig.transferSubmittable`,
+    );
+    const signedTx = req.transactionConfig.transferSubmittable as string;
+
+    this.log.debug(
+      "Starting api.rpc.author.submitAndWatchExtrinsic(transferSubmittable) ",
+    );
+    let success = false;
+    let txHash: string | undefined;
+    let blockHash: string | undefined;
 
     Checks.truthy(req, `${fnTag} req`);
     if (!this.api) {
@@ -385,7 +517,7 @@ export class PluginLedgerConnectorPolkadot
         "The operation has failed because the API is not connected to Substrate Node",
       );
     }
-    const deserializedTransaction = this.api.tx(req.transferSubmittable);
+    const deserializedTransaction = this.api.tx(signedTx);
     const signature = deserializedTransaction.signature.toHex();
     if (!signature) {
       throw Error(`${fnTag} Transaction is not signed. `);
@@ -396,11 +528,31 @@ export class PluginLedgerConnectorPolkadot
     }
 
     try {
-      const status: ExtrinsicStatus =
-        await this.api.rpc.author.submitAndWatchExtrinsic(
+      const txResult = await new Promise<{
+        success: boolean;
+        transactionHash: string;
+        blockhash: string;
+      }>((resolve, reject) => {
+        this.api?.rpc.author.submitAndWatchExtrinsic(
           deserializedTransaction,
+          ({ isInBlock, hash, asInBlock, type }) => {
+            if (isInBlock) {
+              resolve({
+                success: true,
+                blockhash: asInBlock.toHex(),
+                transactionHash: hash.toHex(),
+              });
+            } else {
+              reject("transaction not successful");
+              throw Error(`transaction not submitted with status: ${type}`);
+            }
+          },
         );
-      txHash = status.hash;
+      });
+
+      success = txResult.success;
+      txHash = txResult.transactionHash;
+      blockHash = txResult.blockhash;
       success = true;
       this.prometheusExporter.addCurrentTransaction();
     } catch (e) {
@@ -409,7 +561,7 @@ export class PluginLedgerConnectorPolkadot
       );
     }
 
-    return { success, hash: txHash };
+    return { success, txHash, blockHash };
   }
 
   // Deploy and instantiate a smart contract in Polkadot

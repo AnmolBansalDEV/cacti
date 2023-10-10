@@ -190,19 +190,126 @@
             }
           }
         },
-        "RunTransactionRequest": {
+        "web3SigningCredential": {
           "type": "object",
-          "required": [
-            "transferSubmittable"
+          "required": ["type"],
+          "discriminator": {
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/Web3SigningCredentialCactusKeychainRef"
+            },
+            {
+              "$ref": "#/components/schemas/Web3SigningCredentialMnemonicString"
+            },
+            {
+              "$ref": "#/components/schemas/Web3SigningCredentialNone"
+            }
           ],
-          "additionalProperties": false,
           "properties": {
-            "transferSubmittable": {
+            "type": {
+              "$ref": "#/components/schemas/Web3SigningCredentialType"
+            }
+          }
+        },
+        "Web3SigningCredentialCactusKeychainRef": {
+          "type": "object",
+          "required": ["type", "ethAccount", "keychainId", "keychainEntryKey"],
+          "properties": {
+            "type": {
+              "$ref": "#/components/schemas/Web3SigningCredentialType"
+            },
+            "keychainEntryKey": {
               "type": "string",
+              "description": "The key to use when looking up the the keychain entry holding the secret pointed to by the  keychainEntryKey parameter.",
+              "minLength": 0,
+              "maxLength": 1024
+            },
+            "keychainId": {
+              "type": "string",
+              "description": "The keychain ID to use when looking up the the keychain plugin instance that will be used to retrieve the secret pointed to by the keychainEntryKey parameter.",
+              "minLength": 0,
+              "maxLength": 1024
+            }
+          }
+        },
+        "Web3SigningCredentialMnemonicString": {
+          "type": "object",
+          "required": ["type", "mnemonic"],
+          "properties": {
+            "type": {
+              "$ref": "#/components/schemas/Web3SigningCredentialType"
+            },
+            "mnemonic": {
+              "type": "string",
+              "description": "The Polkadot account's seed phrase for signing transaction",
               "nullable": false
             }
           }
         },
+        "Web3SigningCredentialNone": {
+          "type": "object",
+          "required": ["type"],
+          "description": "Using this denotes that there is no signing required because the transaction is pre-signed.",
+          "properties": {
+            "type": {
+              "$ref": "#/components/schemas/Web3SigningCredentialType"
+            }
+          }
+        },
+        "Web3SigningCredentialType": {
+          "type": "string",
+          "enum": [
+            "CACTUS_KEYCHAIN_REF",
+            "MNEMONIC_STRING",
+            "NONE"
+          ]
+        },
+        "PolkadotTransactionConfig": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "transferSubmittable": {
+              "oneOf": [
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "to": {
+              "oneOf": [
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          }
+        },
+        "RunTransactionRequest": {
+          "type": "object",
+          "required": [
+            "web3SigningCredential", "transactionConfig"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "web3SigningCredential": {
+              "$ref": "#/components/schemas/web3SigningCredential",
+              "nullable": false
+            },
+            "transactionConfig": {
+              "$ref": "#/components/schemas/PolkadotTransactionConfig",
+              "nullable": false
+            }
+        }
+      },
         "RunTransactionResponse": {
           "type": "object",
           "required": [
@@ -214,8 +321,12 @@
               "type": "boolean",
               "nullable": false
             },
-            "hash": {
-              "type": "object",
+            "txHash": {
+              "type": "string",
+              "nullable": false
+            },
+            "blockHash": {
+              "type": "string",
               "nullable": false
             }
           }

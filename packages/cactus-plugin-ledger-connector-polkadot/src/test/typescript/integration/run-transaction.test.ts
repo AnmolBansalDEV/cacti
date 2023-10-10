@@ -1,5 +1,6 @@
 import { PrometheusExporter } from "../../../main/typescript/prometheus-exporter/prometheus-exporter";
 import { AddressInfo } from "net";
+import { v4 as uuidv4 } from "uuid";
 import type { SignerOptions } from "@polkadot/api/submittable/types";
 import type {
   CodecHash,
@@ -23,10 +24,11 @@ import {
   IPluginLedgerConnectorPolkadotOptions,
   DefaultApi as PolkadotApi,
 } from "../../../main/typescript/public-api";
+import { PluginRegistry } from "@hyperledger/cactus-core";
+import { PluginKeychainMemory } from "@hyperledger/cactus-plugin-keychain-memory";
 
-const testCase = "Instantiate plugin";
+const testCase = "transact through all available methods  ";
 const logLevel: LogLevelDesc = "TRACE";
-const pluginRegistry = undefined;
 const DEFAULT_WSPROVIDER = "ws://127.0.0.1:9944";
 const instanceId = "test-polkadot-connector";
 const prometheus: PrometheusExporter = new PrometheusExporter({
@@ -40,38 +42,39 @@ test("BEFORE " + testCase, async (t: Test) => {
 });
 
 test(testCase, async (t: Test) => {
-  const connectorOptions: IPluginLedgerConnectorPolkadotOptions = {
-    logLevel: logLevel,
-    prometheusExporter: prometheus,
-    pluginRegistry: pluginRegistry,
-    wsProviderUrl: DEFAULT_WSPROVIDER,
-    instanceId: instanceId,
-  };
-
+  test.onFinish(async () => {
+    await ledger.stop();
+    await plugin.shutdownConnectionToSubstrate();
+    await pruneDockerAllIfGithubAction({ logLevel });
+  });
   const ledgerOptions = {
     publishAllPorts: false,
     logLevel: logLevel,
     emitContainerLogs: true,
   };
-
-  const tearDown = async () => {
-    await ledger.stop();
-    await plugin.shutdownConnectionToSubstrate();
-    await pruneDockerAllIfGithubAction({ logLevel });
-  };
-
-  test.onFinish(tearDown);
   const ledger = new SubstrateTestLedger(ledgerOptions);
   await ledger.start();
   t.ok(ledger);
-
+  const keychainEntryKey = uuidv4();
+  const keychainEntryValue = "//Alice";
+  const keychainPlugin = new PluginKeychainMemory({
+    instanceId: uuidv4(),
+    keychainId: uuidv4(),
+    // pre-provision keychain with mock backend holding the private key of the
+    // test account that we'll reference while sending requests with the
+    // signing credential pointing to this keychain entry.
+    backend: new Map([[keychainEntryKey, keychainEntryValue]]),
+    logLevel,
+  });
+  const connectorOptions: IPluginLedgerConnectorPolkadotOptions = {
+    logLevel: logLevel,
+    prometheusExporter: prometheus,
+    pluginRegistry: new PluginRegistry({ plugins: [keychainPlugin] }),
+    wsProviderUrl: DEFAULT_WSPROVIDER,
+    instanceId: instanceId,
+  };
   const plugin = new PluginLedgerConnectorPolkadot(connectorOptions);
   await plugin.createAPI();
-
-  const keyring = new Keyring({ type: "sr25519" });
-  const alicePair = keyring.createFromUri("//Alice");
-  const bobPair = keyring.createFromUri("//Bob");
-
   const expressApp = express();
 
   expressApp.use(express.json());
@@ -94,56 +97,110 @@ test(testCase, async (t: Test) => {
 
   await plugin.getOrCreateWebServices();
   await plugin.registerWebServices(expressApp);
+
   if (!plugin.api) {
     t.fail("failed to create api instance");
     return;
   }
-  const infoForSigningTransaction = await apiClient.getTransactionInfo({
-    accountAddress: alicePair,
-    transactionExpiration: 500,
-  });
-  t.equal(infoForSigningTransaction.status, 200);
-  const response = infoForSigningTransaction.data;
-  t.ok(response);
-  const nonce = response.responseContainer.response_data.nonce as Index;
-  t.ok(nonce);
-  const blockHash = response.responseContainer.response_data
-    .blockHash as CodecHash;
-  t.ok(blockHash);
-  const era = response.responseContainer.response_data.era as ExtrinsicEra;
-  t.ok(era);
 
-  const signingOptions: SignerOptions = {
-    nonce: nonce,
-    blockHash: blockHash,
-    era: era,
-  };
+  test("transact using pre-signed transaction", async (t2: Test) => {
+    const keyring = new Keyring({ type: "sr25519" });
+    const alicePair = keyring.createFromUri("//Alice");
+    const bobPair = keyring.createFromUri("//Bob");
 
-  const transaction = await apiClient.getRawTransaction({
-    to: bobPair.address,
-    value: 20,
-  });
-  const rawTransaction =
-    transaction.data.responseContainer.response_data.rawTransaction;
+    const infoForSigningTransaction = await apiClient.getTransactionInfo({
+      accountAddress: alicePair,
+      transactionExpiration: 500,
+    });
+    t2.equal(infoForSigningTransaction.status, 200);
+    const response = infoForSigningTransaction.data;
+    t2.ok(response);
+    const nonce = response.responseContainer.response_data.nonce as Index;
+    t2.ok(nonce);
+    const blockHash = response.responseContainer.response_data
+      .blockHash as CodecHash;
+    t2.ok(blockHash);
+    const era = response.responseContainer.response_data.era as ExtrinsicEra;
+    t2.ok(era);
 
-  const signedTransactionResponse = await apiClient.signRawTransaction({
-    rawTransaction: rawTransaction,
-    mnemonic: "//Alice",
-    signingOptions: signingOptions,
-  });
-  t.ok(signedTransactionResponse.data.success);
-  t.ok(signedTransactionResponse.data.signedTransaction);
-  t.comment(`Signed transaction is: ${rawTransaction}`);
+    const signingOptions: SignerOptions = {
+      nonce: nonce,
+      blockHash: blockHash,
+      era: era,
+    };
 
-  t.ok(rawTransaction);
-  const signedTransaction = signedTransactionResponse.data.signedTransaction;
-  const TransactionDetails = await apiClient.runTransaction({
-    transferSubmittable: signedTransaction,
+    const transaction = await apiClient.getRawTransaction({
+      to: bobPair.address,
+      value: 20,
+    });
+    const rawTransaction =
+      transaction.data.responseContainer.response_data.rawTransaction;
+
+    const signedTransactionResponse = await apiClient.signRawTransaction({
+      rawTransaction: rawTransaction,
+      mnemonic: "//Alice",
+      signingOptions: signingOptions,
+    });
+    t2.ok(signedTransactionResponse.data.success);
+    t2.ok(signedTransactionResponse.data.signedTransaction);
+    t2.comment(`Signed transaction is: ${rawTransaction}`);
+
+    t2.ok(rawTransaction);
+    const signedTransaction = signedTransactionResponse.data.signedTransaction;
+    const TransactionDetails = await apiClient.runTransaction({
+      web3SigningCredential: { type: "NONE" },
+      transactionConfig: {
+        transferSubmittable: signedTransaction,
+      },
+    });
+    t2.equal(TransactionDetails.status, 200);
+    const transactionResponse = TransactionDetails.data;
+    t2.ok(transactionResponse);
+    t2.ok(transactionResponse.success);
+    t2.ok(transactionResponse.txHash);
+    t2.ok(transactionResponse.blockHash);
+    t2.end();
   });
-  t.equal(TransactionDetails.status, 200);
-  const transactionResponse = TransactionDetails.data;
-  t.ok(transactionResponse);
-  t.ok(transactionResponse.success);
-  t.ok(transactionResponse.hash);
+
+  test("transact using passing mnemonic string", async (t3: Test) => {
+    const keyring = new Keyring({ type: "sr25519" });
+    const bobPair = keyring.createFromUri("//Bob");
+    const TransactionDetails = await apiClient.runTransaction({
+      web3SigningCredential: { type: "MNEMONIC_STRING", mnemonic: "//Alice" },
+      transactionConfig: {
+        to: bobPair.address,
+        value: 30,
+      },
+    });
+    t3.equal(TransactionDetails.status, 200);
+    const transactionResponse = TransactionDetails.data;
+    t3.ok(transactionResponse);
+    t3.ok(transactionResponse.success);
+    t3.ok(transactionResponse.txHash);
+    t3.ok(transactionResponse.blockHash);
+    t3.end();
+  });
+  test("transact using passing cactus keychain ref", async (t4: Test) => {
+    const keyring = new Keyring({ type: "sr25519" });
+    const bobPair = keyring.createFromUri("//Bob");
+    const TransactionDetails = await apiClient.runTransaction({
+      web3SigningCredential: {
+        type: "CACTUS_KEYCHAIN_REF",
+        keychainEntryKey: keychainEntryKey,
+        keychainId: keychainPlugin.getKeychainId(),
+      },
+      transactionConfig: {
+        to: bobPair.address,
+        value: 30,
+      },
+    });
+    t4.equal(TransactionDetails.status, 200);
+    const transactionResponse = TransactionDetails.data;
+    t4.ok(transactionResponse);
+    t4.ok(transactionResponse.success);
+    t4.ok(transactionResponse.txHash);
+    t4.ok(transactionResponse.blockHash);
+    t4.end();
+  });
   t.end();
 });

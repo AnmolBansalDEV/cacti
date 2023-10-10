@@ -26,6 +26,45 @@ import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError } from './base';
 /**
  * 
  * @export
+ * @interface PolkadotTransactionConfig
+ */
+export interface PolkadotTransactionConfig {
+    [key: string]: any;
+
+    /**
+     * 
+     * @type {PolkadotTransactionConfigTransferSubmittable}
+     * @memberof PolkadotTransactionConfig
+     */
+    'transferSubmittable'?: PolkadotTransactionConfigTransferSubmittable;
+    /**
+     * 
+     * @type {PolkadotTransactionConfigTransferSubmittable}
+     * @memberof PolkadotTransactionConfig
+     */
+    'to'?: PolkadotTransactionConfigTransferSubmittable;
+    /**
+     * 
+     * @type {PolkadotTransactionConfigValue}
+     * @memberof PolkadotTransactionConfig
+     */
+    'value'?: PolkadotTransactionConfigValue;
+}
+/**
+ * @type PolkadotTransactionConfigTransferSubmittable
+ * @export
+ */
+export type PolkadotTransactionConfigTransferSubmittable = string;
+
+/**
+ * @type PolkadotTransactionConfigValue
+ * @export
+ */
+export type PolkadotTransactionConfigValue = number;
+
+/**
+ * 
+ * @export
  * @interface RawTransactionRequest
  */
 export interface RawTransactionRequest {
@@ -107,10 +146,16 @@ export interface RawTransactionResponseResponseContainer {
 export interface RunTransactionRequest {
     /**
      * 
-     * @type {string}
+     * @type {Web3SigningCredential}
      * @memberof RunTransactionRequest
      */
-    'transferSubmittable': string;
+    'web3SigningCredential': Web3SigningCredential;
+    /**
+     * 
+     * @type {PolkadotTransactionConfig}
+     * @memberof RunTransactionRequest
+     */
+    'transactionConfig': PolkadotTransactionConfig;
 }
 /**
  * 
@@ -126,10 +171,16 @@ export interface RunTransactionResponse {
     'success': boolean;
     /**
      * 
-     * @type {object}
+     * @type {string}
      * @memberof RunTransactionResponse
      */
-    'hash'?: object;
+    'txHash'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof RunTransactionResponse
+     */
+    'blockHash'?: string;
 }
 /**
  * 
@@ -263,6 +314,90 @@ export interface TransactionInfoResponseResponseContainer {
      */
     'error': string | null;
 }
+/**
+ * @type Web3SigningCredential
+ * @export
+ */
+export type Web3SigningCredential = Web3SigningCredentialCactusKeychainRef | Web3SigningCredentialMnemonicString | Web3SigningCredentialNone;
+
+/**
+ * 
+ * @export
+ * @interface Web3SigningCredentialCactusKeychainRef
+ */
+export interface Web3SigningCredentialCactusKeychainRef {
+    /**
+     * 
+     * @type {Web3SigningCredentialType}
+     * @memberof Web3SigningCredentialCactusKeychainRef
+     */
+    'type': Web3SigningCredentialType;
+    /**
+     * The key to use when looking up the the keychain entry holding the secret pointed to by the  keychainEntryKey parameter.
+     * @type {string}
+     * @memberof Web3SigningCredentialCactusKeychainRef
+     */
+    'keychainEntryKey': string;
+    /**
+     * The keychain ID to use when looking up the the keychain plugin instance that will be used to retrieve the secret pointed to by the keychainEntryKey parameter.
+     * @type {string}
+     * @memberof Web3SigningCredentialCactusKeychainRef
+     */
+    'keychainId': string;
+}
+
+
+/**
+ * 
+ * @export
+ * @interface Web3SigningCredentialMnemonicString
+ */
+export interface Web3SigningCredentialMnemonicString {
+    /**
+     * 
+     * @type {Web3SigningCredentialType}
+     * @memberof Web3SigningCredentialMnemonicString
+     */
+    'type': Web3SigningCredentialType;
+    /**
+     * The Polkadot account\'s seed phrase for signing transaction
+     * @type {string}
+     * @memberof Web3SigningCredentialMnemonicString
+     */
+    'mnemonic': string;
+}
+
+
+/**
+ * Using this denotes that there is no signing required because the transaction is pre-signed.
+ * @export
+ * @interface Web3SigningCredentialNone
+ */
+export interface Web3SigningCredentialNone {
+    /**
+     * 
+     * @type {Web3SigningCredentialType}
+     * @memberof Web3SigningCredentialNone
+     */
+    'type': Web3SigningCredentialType;
+}
+
+
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const Web3SigningCredentialType = {
+    CactusKeychainRef: 'CACTUS_KEYCHAIN_REF',
+    MnemonicString: 'MNEMONIC_STRING',
+    None: 'NONE'
+} as const;
+
+export type Web3SigningCredentialType = typeof Web3SigningCredentialType[keyof typeof Web3SigningCredentialType];
+
+
 
 /**
  * DefaultApi - axios parameter creator
