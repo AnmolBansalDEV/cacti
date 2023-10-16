@@ -26,6 +26,117 @@ import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError } from './base';
 /**
  * 
  * @export
+ * @interface DeployContractInkRequest
+ */
+export interface DeployContractInkRequest {
+    /**
+     * 
+     * @type {Web3SigningCredential}
+     * @memberof DeployContractInkRequest
+     */
+    'web3SigningCredential': Web3SigningCredential;
+    /**
+     * raw wasm for the compiled contract in base64 format
+     * @type {string}
+     * @memberof DeployContractInkRequest
+     */
+    'wasm': string;
+    /**
+     * 
+     * @type {PolkadotTransactionConfigTransferSubmittable}
+     * @memberof DeployContractInkRequest
+     */
+    'metadata': PolkadotTransactionConfigTransferSubmittable;
+    /**
+     * 
+     * @type {DeployContractInkRequestGasLimit}
+     * @memberof DeployContractInkRequest
+     */
+    'gasLimit': DeployContractInkRequestGasLimit;
+    /**
+     * 
+     * @type {DeployContractInkRequestStorageDepositLimit}
+     * @memberof DeployContractInkRequest
+     */
+    'storageDepositLimit'?: DeployContractInkRequestStorageDepositLimit | null;
+    /**
+     * The list of arguments to pass in to the contract method being deployed
+     * @type {Array<any>}
+     * @memberof DeployContractInkRequest
+     */
+    'params'?: Array<any>;
+    /**
+     * 
+     * @type {DeployContractInkRequestBalance}
+     * @memberof DeployContractInkRequest
+     */
+    'balance'?: DeployContractInkRequestBalance;
+    /**
+     * 
+     * @type {DeployContractInkRequestSalt}
+     * @memberof DeployContractInkRequest
+     */
+    'salt'?: DeployContractInkRequestSalt | null;
+}
+/**
+ * @type DeployContractInkRequestBalance
+ * @export
+ */
+export type DeployContractInkRequestBalance = number | string;
+
+/**
+ * 
+ * @export
+ * @interface DeployContractInkRequestGasLimit
+ */
+export interface DeployContractInkRequestGasLimit {
+    /**
+     * 
+     * @type {number}
+     * @memberof DeployContractInkRequestGasLimit
+     */
+    'refTime': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof DeployContractInkRequestGasLimit
+     */
+    'proofSize': number;
+}
+/**
+ * @type DeployContractInkRequestSalt
+ * @export
+ */
+export type DeployContractInkRequestSalt = string;
+
+/**
+ * @type DeployContractInkRequestStorageDepositLimit
+ * @export
+ */
+export type DeployContractInkRequestStorageDepositLimit = number | string;
+
+/**
+ * 
+ * @export
+ * @interface DeployContractInkResponse
+ */
+export interface DeployContractInkResponse {
+    /**
+     * 
+     * @type {boolean}
+     * @memberof DeployContractInkResponse
+     */
+    'success': boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof DeployContractInkResponse
+     */
+    'address'?: string;
+}
+/**
+ * 
+ * @export
  * @interface PolkadotTransactionConfig
  */
 export interface PolkadotTransactionConfig {
@@ -407,6 +518,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
     return {
         /**
          * 
+         * @summary Deploys the ink! contract
+         * @param {DeployContractInkRequest} [deployContractInkRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deployContractInk: async (deployContractInkRequest?: DeployContractInkRequest, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/deploy-contract-ink`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(deployContractInkRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Get the Prometheus Metrics
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -583,6 +728,17 @@ export const DefaultApiFp = function(configuration?: Configuration) {
     return {
         /**
          * 
+         * @summary Deploys the ink! contract
+         * @param {DeployContractInkRequest} [deployContractInkRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deployContractInk(deployContractInkRequest?: DeployContractInkRequest, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<DeployContractInkResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deployContractInk(deployContractInkRequest, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * 
          * @summary Get the Prometheus Metrics
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -647,6 +803,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
     return {
         /**
          * 
+         * @summary Deploys the ink! contract
+         * @param {DeployContractInkRequest} [deployContractInkRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deployContractInk(deployContractInkRequest?: DeployContractInkRequest, options?: any): AxiosPromise<DeployContractInkResponse> {
+            return localVarFp.deployContractInk(deployContractInkRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Get the Prometheus Metrics
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -704,6 +870,18 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
  * @extends {BaseAPI}
  */
 export class DefaultApi extends BaseAPI {
+    /**
+     * 
+     * @summary Deploys the ink! contract
+     * @param {DeployContractInkRequest} [deployContractInkRequest] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public deployContractInk(deployContractInkRequest?: DeployContractInkRequest, options?: AxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deployContractInk(deployContractInkRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @summary Get the Prometheus Metrics

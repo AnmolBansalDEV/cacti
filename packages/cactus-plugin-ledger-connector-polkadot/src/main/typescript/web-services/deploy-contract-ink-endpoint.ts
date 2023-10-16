@@ -1,6 +1,4 @@
 import { Express, Request, Response } from "express";
-import HttpStatus from "http-status-codes";
-
 import {
   Logger,
   LoggerProvider,
@@ -18,27 +16,26 @@ import {
 import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
 
 import { PluginLedgerConnectorPolkadot } from "../plugin-ledger-connector-polkadot";
-import { DeployContractInkEndpoint as Constants } from "./deploy-contract-ink-endpoint-constants";
+import OAS from "../../json/openapi.json";
 
-export interface IDeployContractInkOptions {
+export interface IDeployContractInkEndpointOptions {
   logLevel?: LogLevelDesc;
   connector: PluginLedgerConnectorPolkadot;
 }
 
 export class DeployContractInkEndpoint implements IWebServiceEndpoint {
   private readonly log: Logger;
-  public static readonly CLASS_NAME = "InvokeContractEndpoint";
+  public static readonly CLASS_NAME = "DeployContractInkEndpoint";
 
-  constructor(public readonly opts: IDeployContractInkOptions) {
-    const fnTag = "RunTransactionEndpointV1#constructor()";
+  constructor(public readonly opts: IDeployContractInkEndpointOptions) {
+    const fnTag = "DeployContractInkEndpoint#constructor()";
 
     Checks.truthy(opts, `${fnTag} options`);
-    Checks.truthy(opts.connector, `${fnTag} options.connector`);
+    Checks.truthy(opts.connector, `${fnTag} arg options.connector`);
 
-    this.log = LoggerProvider.getOrCreate({
-      label: this.className,
-      level: opts.logLevel || "INFO",
-    });
+    const level = this.opts.logLevel || "INFO";
+    const label = this.className;
+    this.log = LoggerProvider.getOrCreate({ level, label });
   }
 
   public get className(): string {
@@ -60,19 +57,21 @@ export class DeployContractInkEndpoint implements IWebServiceEndpoint {
   }
 
   public getPath(): string {
-    return Constants.HTTP_PATH;
+    return this.oasPath.post["x-hyperledger-cactus"].http.path;
   }
 
   public getVerbLowerCase(): string {
-    return Constants.HTTP_VERB_LOWER_CASE;
+    return this.oasPath.post["x-hyperledger-cactus"].http.verbLowerCase;
   }
 
   public getOperationId(): string {
-    throw new Error("Method not implemented.");
+    return this.oasPath.post.operationId;
   }
 
-  public get oasPath(): string {
-    throw new Error("Method not implemented.");
+  public get oasPath(): (typeof OAS.paths)["/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/deploy-contract-ink"] {
+    return OAS.paths[
+      "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/deploy-contract-ink"
+    ];
   }
 
   public async registerExpress(
@@ -83,25 +82,18 @@ export class DeployContractInkEndpoint implements IWebServiceEndpoint {
   }
 
   async handleRequest(req: Request, res: Response): Promise<void> {
-    const fnTag = "DeployContractInkEndpoint#handleRequest()";
-    this.log.debug(`POST ${this.getPath()}`);
+    const reqTag = `${this.getVerbLowerCase()} - ${this.getPath()}`;
+    this.log.debug(reqTag);
+    const reqBody = req.body;
     try {
-      const message =
-        `${this.opts.connector.className} does not support ` +
-        ` contract deployment yet. This is a feature that is under ` +
-        ` development for now. Stay tuned!`;
-      const resBody = { message };
-      // const reqBody = req.body as RunTransactionRequest;
-      // const resBody = await this.opts.connector.transact(reqBody);
-      // res.status(200);
-      // res.json(resBody);
-      res.status(HttpStatus.NOT_IMPLEMENTED);
+      const resBody = await this.opts.connector.deployContract(reqBody);
       res.json(resBody);
     } catch (ex) {
-      this.log.error(`${fnTag} failed to serve request`, ex);
-      res.status(500);
-      res.statusMessage = ex as string;
-      res.json({ error: ex });
+      this.log.error(`Crash while serving ${reqTag}`, ex);
+      res.status(500).json({
+        message: "Internal Server Error",
+        error: ex?.stack || ex?.message,
+      });
     }
   }
 }

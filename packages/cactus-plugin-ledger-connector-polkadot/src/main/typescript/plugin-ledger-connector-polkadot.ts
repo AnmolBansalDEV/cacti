@@ -7,12 +7,8 @@ import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { Hash, WeightV2 } from "@polkadot/types/interfaces";
 import { CodePromise, Abi } from "@polkadot/api-contract";
 import { KeyringPair } from "@polkadot/keyring/types";
-import type {
-  AddressOrPair,
-  SignerOptions,
-} from "@polkadot/api/submittable/types";
+import type { SignerOptions } from "@polkadot/api/submittable/types";
 import { isHex } from "@polkadot/util";
-import { BN } from "@polkadot/util";
 import { PrometheusExporter } from "./prometheus-exporter/prometheus-exporter";
 import {
   GetPrometheusExporterMetricsEndpointV1,
@@ -46,6 +42,8 @@ import {
 } from "@hyperledger/cactus-common";
 import { promisify } from "util";
 import {
+  DeployContractInkRequest,
+  DeployContractInkResponse,
   RawTransactionRequest,
   RawTransactionResponse,
   RunTransactionRequest,
@@ -75,6 +73,15 @@ import {
   ISignRawTransactionEndpointOptions,
   SignRawTransactionEndpoint,
 } from "./web-services/sign-raw-transaction-endpoint";
+import {
+  DeployContractInkEndpoint,
+  IDeployContractInkEndpointOptions,
+} from "./web-services/deploy-contract-ink-endpoint";
+import {
+  isWeb3SigningCredentialCactusRef,
+  isWeb3SigningCredentialMnemonicString,
+  isWeb3SigningCredentialNone,
+} from "./model-type-guards";
 
 export interface IPluginLedgerConnectorPolkadotOptions
   extends ICactusPluginOptions {
@@ -84,23 +91,6 @@ export interface IPluginLedgerConnectorPolkadotOptions
   wsProviderUrl: string;
   instanceId: string;
   autoConnect?: boolean;
-}
-
-export interface DeployContractInkBytecodeRequest {
-  wasm: Uint8Array;
-  abi: string | Record<string, unknown>;
-  gasLimit: WeightV2;
-  storageDepositLimit: string | number | bigint | BN | null | undefined;
-  account: AddressOrPair;
-  params: Array<unknown>;
-  balance?: number;
-}
-
-interface DeployContractInkBytecodeResponse {
-  success: boolean;
-  contractCode: CodePromise;
-  contractAbi: Abi;
-  address: string | null;
 }
 
 export interface ReadStorageRequest {
@@ -131,8 +121,8 @@ export interface ResponseContainer {
 export class PluginLedgerConnectorPolkadot
   implements
     IPluginLedgerConnector<
-      DeployContractInkBytecodeRequest,
-      DeployContractInkBytecodeResponse,
+      DeployContractInkRequest,
+      DeployContractInkResponse,
       RunTransactionRequest,
       RunTransactionResponse
     >,
@@ -255,6 +245,15 @@ export class PluginLedgerConnectorPolkadot
       };
 
       const endpoint = new SignRawTransactionEndpoint(opts);
+      endpoints.push(endpoint);
+    }
+    {
+      const opts: IDeployContractInkEndpointOptions = {
+        connector: this,
+        logLevel: this.opts.logLevel,
+      };
+
+      const endpoint = new DeployContractInkEndpoint(opts);
       endpoints.push(endpoint);
     }
 
@@ -566,79 +565,136 @@ export class PluginLedgerConnectorPolkadot
 
   // Deploy and instantiate a smart contract in Polkadot
   public async deployContract(
-    req: DeployContractInkBytecodeRequest,
-  ): Promise<DeployContractInkBytecodeResponse> {
+    req: DeployContractInkRequest,
+  ): Promise<DeployContractInkResponse> {
     const fnTag = `${this.className}#deployContract()`;
     Checks.truthy(req, `${fnTag} req`);
-
-    let success = false;
-
-    if (this.api) {
-      const contractCode = new CodePromise(this.api, req.abi, req.wasm);
-      const contractAbi = new Abi(
-        req.abi,
-        this.api.registry.getChainProperties(),
-      );
-
-      let address: string | null = null;
-      try {
-        const tx =
-          contractCode && contractAbi?.constructors[0]?.method
-            ? contractCode.tx[contractAbi.constructors[0].method](
-                {
-                  gasLimit: req.gasLimit,
-                  storageDepositLimit: req.storageDepositLimit,
-                  value: req.balance,
-                },
-                ...req.params,
-              )
-            : null;
-        if (tx) {
-          // Use Promise to ensure signAndSend completes before continuing
-          const txResult = await new Promise<{
-            success: boolean;
-            address: string | null;
-          }>((resolve, reject) => {
-            tx.signAndSend(
-              req.account,
-              //https://github.com/polkadot-js/api/issues/5722
-              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-              // @ts-ignore
-              ({ contract, status }) => {
-                if (status.isInBlock || status.isFinalized) {
-                  address = contract.address.toString();
-                  resolve({ success: true, address });
-                }
-              },
-              (error) => {
-                reject(error);
-              },
-            );
-          });
-          success = txResult.success;
-          address = txResult.address;
-        }
-      } catch (e) {
-        throw Error(
-          `${fnTag} The contract upload and deployment failed. ` +
-            `InnerException: ${e}`,
-        );
-      }
-      if (address) {
-        this.prometheusExporter.addCurrentTransaction();
-      }
-
-      return {
-        success: success,
-        contractAbi: contractAbi,
-        contractCode: contractCode,
-        address: address,
-      };
-    } else {
+    if (!this.api) {
       throw Error(
         "The operation has failed because the API is not connected to Substrate Node",
       );
     }
+
+    if (isWeb3SigningCredentialNone(req.web3SigningCredential)) {
+      throw new Error(`${fnTag} Cannot deploy contract with pre-signed TX`);
+    }
+    let mnemonic: string;
+    if (isWeb3SigningCredentialMnemonicString(req.web3SigningCredential)) {
+      const web3SigningCredential =
+        req.web3SigningCredential as Web3SigningCredentialMnemonicString;
+      mnemonic = web3SigningCredential.mnemonic;
+    } else if (isWeb3SigningCredentialCactusRef(req.web3SigningCredential)) {
+      const web3SigningCredential =
+        req.web3SigningCredential as Web3SigningCredentialCactusKeychainRef;
+      const { keychainEntryKey, keychainId } = web3SigningCredential;
+      // locate the keychain plugin that has access to the keychain backend
+      // denoted by the keychainID from the request.
+      const keychainPlugin =
+        this.pluginRegistry.findOneByKeychainId(keychainId);
+
+      Checks.truthy(keychainPlugin, `${fnTag} keychain for ID:"${keychainId}"`);
+
+      // Now use the found keychain plugin to actually perform the lookup of
+      // the private key that we need to run the transaction.
+      mnemonic = await keychainPlugin?.get(keychainEntryKey);
+    } else {
+      throw new Error(
+        `${fnTag} Unrecognized Web3SigningCredentialType: ` +
+          `Supported ones are: ` +
+          `${Object.values(Web3SigningCredentialType).join(";")}`,
+      );
+    }
+    let success = false;
+    let address: string | undefined;
+    const contractAbi = new Abi(
+      req.metadata,
+      this.api.registry.getChainProperties(),
+    );
+    const contractCode = new CodePromise(
+      this.api,
+      contractAbi,
+      Buffer.from(req.wasm, "base64"),
+    );
+    const gasLimit: WeightV2 = this.api.registry.createType("WeightV2", {
+      refTime: req.gasLimit.refTime,
+      proofSize: req.gasLimit.proofSize,
+    });
+    try {
+      const keyring = new Keyring({ type: "sr25519" });
+      const accountPair = keyring.createFromUri(mnemonic);
+      const tx =
+        req.params && req.params.length > 0
+          ? contractCode.tx[contractAbi.constructors[0].method](
+              {
+                gasLimit,
+                storageDepositLimit: req.storageDepositLimit,
+                salt: req.salt,
+                value: req.balance,
+              },
+              ...req.params,
+            )
+          : contractCode.tx[contractAbi.constructors[0].method](
+              {
+                gasLimit,
+                storageDepositLimit: req.storageDepositLimit,
+                salt: req.salt,
+                value: req.balance,
+              },
+              undefined,
+            );
+      if (tx) {
+        // Use Promise to ensure signAndSend completes before continuing
+        const txResult = await new Promise<{
+          success: boolean;
+          address: string | undefined;
+        }>((resolve, reject) => {
+          tx?.signAndSend(
+            accountPair,
+            //https://github.com/polkadot-js/api/issues/5722
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            ({ contract, status, dispatchError }) => {
+              if (!this.api) {
+                throw Error(
+                  "The operation has failed because the API is not connected to Substrate Node",
+                );
+              }
+              if (status.isInBlock || status.isFinalized) {
+                if (dispatchError) {
+                  reject("deployment not successful");
+                  if (dispatchError.isModule) {
+                    const decoded = this.api.registry.findMetaError(
+                      dispatchError.asModule,
+                    );
+                    const { docs, name, section } = decoded;
+                    throw Error(`${section}.${name}: ${docs.join(" ")}`);
+                  } else {
+                    throw Error(dispatchError.toString());
+                  }
+                }
+                address = contract.address.toString();
+                resolve({ success: true, address });
+              }
+            },
+          );
+        });
+        success = txResult.success;
+        address = txResult.address;
+      }
+    } catch (e) {
+      throw Error(
+        `${fnTag} The contract upload and deployment failed. ` +
+          `InnerException: ${e}`,
+      );
+    }
+    if (!address) {
+      this.prometheusExporter.addCurrentTransaction();
+    }
+
+    return {
+      success: success,
+      address: address,
+    };
   }
 
   // Read from the smart contract's storage

@@ -330,6 +330,101 @@
               "nullable": false
             }
           }
+        },
+        "DeployContractInkRequest": {
+          "type": "object",
+          "required": [
+            "web3SigningCredential",
+            "wasm",
+            "metadata",
+            "gasLimit"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "web3SigningCredential": {
+              "$ref": "#/components/schemas/web3SigningCredential",
+              "nullable": false
+            },
+            "wasm": {
+              "description": "raw wasm for the compiled contract in base64 format",
+              "type": "string",
+              "format": "byte",
+              "nullable": false
+            },
+            "metadata": {
+              "oneOf": [
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "gasLimit": {
+              "type": "object",
+              "required": ["refTime", "proofSize"],
+              "properties": {
+                "refTime": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "proofSize": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "storageDepositLimit": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              ],
+              "nullable": true
+            },
+            "params": {
+              "description": "The list of arguments to pass in to the contract method being deployed",
+              "type": "array",
+              "default": [],
+              "items": {}
+            },
+            "balance": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              ]
+            },
+            "salt": {
+              "oneOf": [
+                {
+                  "type": "string"
+                }
+              ],
+              "nullable": true
+            }
+          }
+        },
+        "DeployContractInkResponse": {
+          "type": "object",
+          "required": ["success"],
+          "additionalProperties": false,
+          "properties": {
+            "success": {
+              "type": "boolean",
+              "nullable": false
+            },
+            "address": {
+              "type": "string",
+              "nullable": false
+            }
+          }
         }
       }
     },
@@ -488,6 +583,40 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RunTransactionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/deploy-contract-ink": {
+      "post": {
+        "x-hyperledger-cactus": {
+          "http": {
+            "verbLowerCase": "post",
+            "path": "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/deploy-contract-ink"
+          }
+        },
+        "operationId": "deployContractInk",
+        "summary": "Deploys the ink! contract",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+              "application/json": {
+                  "schema": {
+                      "$ref": "#/components/schemas/DeployContractInkRequest"
+                  }
+              }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeployContractInkResponse"
                 }
               }
             }
