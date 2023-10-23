@@ -132,8 +132,122 @@ export interface DeployContractInkResponse {
      * @type {string}
      * @memberof DeployContractInkResponse
      */
-    'address'?: string;
+    'contractAddress'?: string;
 }
+/**
+ * 
+ * @export
+ * @interface InvokeContractRequest
+ */
+export interface InvokeContractRequest {
+    /**
+     * 
+     * @type {PolkadotContractInvocationType}
+     * @memberof InvokeContractRequest
+     */
+    'invocationType': PolkadotContractInvocationType;
+    /**
+     * 
+     * @type {string}
+     * @memberof InvokeContractRequest
+     */
+    'accountAddress': string;
+    /**
+     * 
+     * @type {Web3SigningCredential}
+     * @memberof InvokeContractRequest
+     */
+    'web3SigningCredential': Web3SigningCredential;
+    /**
+     * 
+     * @type {PolkadotTransactionConfigTransferSubmittable}
+     * @memberof InvokeContractRequest
+     */
+    'metadata': PolkadotTransactionConfigTransferSubmittable;
+    /**
+     * 
+     * @type {string}
+     * @memberof InvokeContractRequest
+     */
+    'contractAddress': string;
+    /**
+     * The name of the contract method to invoke.
+     * @type {string}
+     * @memberof InvokeContractRequest
+     */
+    'methodName': string;
+    /**
+     * 
+     * @type {DeployContractInkRequestGasLimit}
+     * @memberof InvokeContractRequest
+     */
+    'gasLimit': DeployContractInkRequestGasLimit;
+    /**
+     * 
+     * @type {DeployContractInkRequestStorageDepositLimit}
+     * @memberof InvokeContractRequest
+     */
+    'storageDepositLimit'?: DeployContractInkRequestStorageDepositLimit | null;
+    /**
+     * 
+     * @type {DeployContractInkRequestBalance}
+     * @memberof InvokeContractRequest
+     */
+    'balance'?: DeployContractInkRequestBalance;
+    /**
+     * The list of arguments to pass in to the contract method being invoked
+     * @type {Array<any>}
+     * @memberof InvokeContractRequest
+     */
+    'params'?: Array<any>;
+}
+
+
+/**
+ * 
+ * @export
+ * @interface InvokeContractResponse
+ */
+export interface InvokeContractResponse {
+    /**
+     * 
+     * @type {any}
+     * @memberof InvokeContractResponse
+     */
+    'callOutput'?: any;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof InvokeContractResponse
+     */
+    'success': boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof InvokeContractResponse
+     */
+    'txHash'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof InvokeContractResponse
+     */
+    'blockHash'?: string;
+}
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const PolkadotContractInvocationType = {
+    Send: 'SEND',
+    Query: 'QUERY'
+} as const;
+
+export type PolkadotContractInvocationType = typeof PolkadotContractInvocationType[keyof typeof PolkadotContractInvocationType];
+
+
 /**
  * 
  * @export
@@ -345,10 +459,10 @@ export interface SignRawTransactionResponse {
 export interface TransactionInfoRequest {
     /**
      * 
-     * @type {object}
+     * @type {string}
      * @memberof TransactionInfoRequest
      */
-    'accountAddress': object;
+    'accountAddress': string;
     /**
      * 
      * @type {number}
@@ -650,6 +764,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
+         * @summary Invokes a contract on a polkadot ledger
+         * @param {InvokeContractRequest} [invokeContractRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        invokeContract: async (invokeContractRequest?: InvokeContractRequest, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/invoke-contract`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(invokeContractRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Executes a transaction on a Polkadot ledger
          * @param {RunTransactionRequest} [runTransactionRequest] 
          * @param {*} [options] Override http request option.
@@ -771,6 +919,17 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Invokes a contract on a polkadot ledger
+         * @param {InvokeContractRequest} [invokeContractRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async invokeContract(invokeContractRequest?: InvokeContractRequest, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<InvokeContractResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.invokeContract(invokeContractRequest, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * 
          * @summary Executes a transaction on a Polkadot ledger
          * @param {RunTransactionRequest} [runTransactionRequest] 
          * @param {*} [options] Override http request option.
@@ -839,6 +998,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         getTransactionInfo(transactionInfoRequest?: TransactionInfoRequest, options?: any): AxiosPromise<TransactionInfoResponse> {
             return localVarFp.getTransactionInfo(transactionInfoRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Invokes a contract on a polkadot ledger
+         * @param {InvokeContractRequest} [invokeContractRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        invokeContract(invokeContractRequest?: InvokeContractRequest, options?: any): AxiosPromise<InvokeContractResponse> {
+            return localVarFp.invokeContract(invokeContractRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -915,6 +1084,18 @@ export class DefaultApi extends BaseAPI {
      */
     public getTransactionInfo(transactionInfoRequest?: TransactionInfoRequest, options?: AxiosRequestConfig) {
         return DefaultApiFp(this.configuration).getTransactionInfo(transactionInfoRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Invokes a contract on a polkadot ledger
+     * @param {InvokeContractRequest} [invokeContractRequest] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public invokeContract(invokeContractRequest?: InvokeContractRequest, options?: AxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).invokeContract(invokeContractRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

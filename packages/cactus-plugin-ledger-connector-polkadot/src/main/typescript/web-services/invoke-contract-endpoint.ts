@@ -1,5 +1,4 @@
 import { Express, Request, Response } from "express";
-import HttpStatus from "http-status-codes";
 
 import {
   Logger,
@@ -8,7 +7,6 @@ import {
   Checks,
   IAsyncProvider,
 } from "@hyperledger/cactus-common";
-
 import {
   IWebServiceEndpoint,
   IExpressRequestHandler,
@@ -18,8 +16,7 @@ import {
 import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
 
 import { PluginLedgerConnectorPolkadot } from "../plugin-ledger-connector-polkadot";
-import { InvokeContractEndpoint as Constants } from "./invoke-contract-endpoint-constants";
-
+import OAS from "../../json/openapi.json";
 export interface IInvokeContractEndpointOptions {
   logLevel?: LogLevelDesc;
   connector: PluginLedgerConnectorPolkadot;
@@ -30,21 +27,17 @@ export class InvokeContractEndpoint implements IWebServiceEndpoint {
   public static readonly CLASS_NAME = "InvokeContractEndpoint";
 
   constructor(public readonly opts: IInvokeContractEndpointOptions) {
-    const fnTag = "RunTransactionEndpointV1#constructor()";
+    const fnTag = `${this.className}#constructor()`;
 
-    Checks.truthy(opts, `${fnTag} options`);
-    Checks.truthy(opts.connector, `${fnTag} options.connector`);
-
-    this.log = LoggerProvider.getOrCreate({
-      label: this.className,
-      level: opts.logLevel || "INFO",
-    });
+    Checks.truthy(opts, `${fnTag} arg options`);
+    Checks.truthy(opts.connector, `${fnTag} arg options.connector`);
+    const level = this.opts.logLevel || "INFO";
+    const label = this.className;
+    this.log = LoggerProvider.getOrCreate({ level, label });
   }
-
   public get className(): string {
     return InvokeContractEndpoint.CLASS_NAME;
   }
-
   getAuthorizationOptionsProvider(): IAsyncProvider<IEndpointAuthzOptions> {
     // TODO: make this an injectable dependency in the constructor
     return {
@@ -60,19 +53,21 @@ export class InvokeContractEndpoint implements IWebServiceEndpoint {
   }
 
   public getPath(): string {
-    return Constants.HTTP_PATH;
+    return this.oasPath.post["x-hyperledger-cactus"].http.path;
   }
 
   public getVerbLowerCase(): string {
-    return Constants.HTTP_VERB_LOWER_CASE;
+    return this.oasPath.post["x-hyperledger-cactus"].http.verbLowerCase;
   }
 
   public getOperationId(): string {
-    throw new Error("Method not implemented.");
+    return this.oasPath.post.operationId;
   }
 
-  public get oasPath(): string {
-    throw new Error("Method not implemented.");
+  public get oasPath(): (typeof OAS.paths)["/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/invoke-contract"] {
+    return OAS.paths[
+      "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/invoke-contract"
+    ];
   }
 
   public async registerExpress(
@@ -83,25 +78,18 @@ export class InvokeContractEndpoint implements IWebServiceEndpoint {
   }
 
   async handleRequest(req: Request, res: Response): Promise<void> {
-    const fnTag = "InvokeContractEndpoint#handleRequest()";
-    this.log.debug(`POST ${this.getPath()}`);
+    const reqTag = `${this.getVerbLowerCase()} - ${this.getPath()}`;
+    this.log.debug(reqTag);
+    const reqBody = req.body;
     try {
-      const message =
-        `${this.opts.connector.className} does not support ` +
-        ` contract deployment yet. This is a feature that is under ` +
-        ` development for now. Stay tuned!`;
-      const resBody = { message };
-      // const reqBody = req.body as RunTransactionRequest;
-      // const resBody = await this.opts.connector.transact(reqBody);
-      // res.status(200);
-      // res.json(resBody);
-      res.status(HttpStatus.NOT_IMPLEMENTED);
+      const resBody = await this.opts.connector.invokeContract(reqBody);
       res.json(resBody);
     } catch (ex) {
-      this.log.error(`${fnTag} failed to serve request`, ex);
-      res.status(500);
-      res.statusMessage = ex as string;
-      res.json({ error: ex });
+      this.log.error(`Crash while serving ${reqTag}`, ex);
+      res.status(500).json({
+        message: "Internal Server Error",
+        error: ex?.stack || ex?.message,
+      });
     }
   }
 }

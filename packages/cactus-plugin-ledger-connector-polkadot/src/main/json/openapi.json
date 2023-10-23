@@ -24,7 +24,7 @@
           "additionalProperties": false,
           "properties": {
             "accountAddress": {
-              "type": "object",
+              "type": "string",
               "nullable": false
             },
             "transactionExpiration":{
@@ -420,7 +420,119 @@
               "type": "boolean",
               "nullable": false
             },
-            "address": {
+            "contractAddress": {
+              "type": "string",
+              "nullable": false
+            }
+          }
+        },
+        "PolkadotContractInvocationType": {
+          "type": "string",
+          "enum": ["SEND", "QUERY"]
+        },
+        "InvokeContractRequest": {
+          "type": "object",
+          "required": [
+            "invocationType",
+            "metadata",
+            "contractAddress",
+            "methodName",
+            "gasLimit",
+            "accountAddress",
+            "web3SigningCredential"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "invocationType": {
+              "$ref": "#/components/schemas/PolkadotContractInvocationType",
+              "nullable": false,
+              "description": "Indicates whether it is a QUERY or a SEND type of  invocation where only SEND ends up creating an actual transaction on the ledger."
+            },
+            "accountAddress": {
+              "type": "string",
+              "nullable": false
+            },
+            "web3SigningCredential": {
+              "$ref": "#/components/schemas/web3SigningCredential",
+              "nullable": false
+            },
+            "metadata": {
+              "oneOf": [
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "contractAddress": {
+              "type": "string",
+              "nullable": false
+            },
+            "methodName": {
+              "description": "The name of the contract method to invoke.",
+              "type": "string",
+              "nullable": false,
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "gasLimit": {
+              "type": "object",
+              "required": ["refTime", "proofSize"],
+              "properties": {
+                "refTime": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "proofSize": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "storageDepositLimit": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              ],
+              "nullable": true
+            },
+            "balance": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              ]
+            },
+            "params": {
+              "description": "The list of arguments to pass in to the contract method being invoked",
+              "type": "array",
+              "default": [],
+              "items": {}
+            }
+          }
+        },
+        "InvokeContractResponse": {
+          "type": "object",
+          "required": ["success"],
+          "properties": {
+            "callOutput": {},
+            "success": {
+              "type": "boolean",
+              "nullable": false
+            },
+            "txHash": {
+              "type": "string",
+              "nullable": false
+            },
+            "blockHash": {
               "type": "string",
               "nullable": false
             }
@@ -617,6 +729,40 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeployContractInkResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/invoke-contract": {
+      "post": {
+        "x-hyperledger-cactus": {
+          "http": {
+            "verbLowerCase": "post",
+            "path": "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/invoke-contract"
+          }
+        },
+        "operationId": "invokeContract",
+        "summary": "Invokes a contract on a polkadot ledger",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvokeContractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvokeContractResponse"
                 }
               }
             }

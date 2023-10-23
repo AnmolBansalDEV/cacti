@@ -109,7 +109,7 @@ test(testCase, async (t: Test) => {
     const bobPair = keyring.createFromUri("//Bob");
 
     const infoForSigningTransaction = await apiClient.getTransactionInfo({
-      accountAddress: alicePair,
+      accountAddress: alicePair.address,
       transactionExpiration: 500,
     });
     t2.equal(infoForSigningTransaction.status, 200);

@@ -1,12 +1,8 @@
 import { Express, Request, Response } from "express";
 
-import {
-  Logger,
-  LoggerProvider,
-  LogLevelDesc,
-  Checks,
-  IAsyncProvider,
-} from "@hyperledger/cactus-common";
+import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
+
+import OAS from "../../json/openapi.json";
 
 import {
   IWebServiceEndpoint,
@@ -14,37 +10,37 @@ import {
   IEndpointAuthzOptions,
 } from "@hyperledger/cactus-core-api";
 
-import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
+import {
+  LogLevelDesc,
+  Logger,
+  LoggerProvider,
+  Checks,
+  IAsyncProvider,
+} from "@hyperledger/cactus-common";
 
 import { PluginLedgerConnectorPolkadot } from "../plugin-ledger-connector-polkadot";
-import { InvokeContractEndpoint as Constants } from "./invoke-contract-endpoint-constants";
 
 export interface IGetPrometheusExporterMetricsEndpointV1Options {
-  logLevel?: LogLevelDesc;
   connector: PluginLedgerConnectorPolkadot;
+  logLevel?: LogLevelDesc;
 }
 
 export class GetPrometheusExporterMetricsEndpointV1
-  implements IWebServiceEndpoint {
+  implements IWebServiceEndpoint
+{
   private readonly log: Logger;
-  public static readonly CLASS_NAME = "InvokeContractEndpoint";
 
   constructor(
-    public readonly opts: IGetPrometheusExporterMetricsEndpointV1Options,
+    public readonly options: IGetPrometheusExporterMetricsEndpointV1Options,
   ) {
-    const fnTag = "RunTransactionEndpointV1#constructor()";
+    const fnTag = "GetPrometheusExporterMetricsEndpointV1#constructor()";
 
-    Checks.truthy(opts, `${fnTag} options`);
-    Checks.truthy(opts.connector, `${fnTag} options.connector`);
+    Checks.truthy(options, `${fnTag} options`);
+    Checks.truthy(options.connector, `${fnTag} options.connector`);
 
-    this.log = LoggerProvider.getOrCreate({
-      label: this.className,
-      level: opts.logLevel || "INFO",
-    });
-  }
-
-  public get className(): string {
-    return GetPrometheusExporterMetricsEndpointV1.CLASS_NAME;
+    const label = "get-prometheus-exporter-metrics-endpoint";
+    const level = options.logLevel || "INFO";
+    this.log = LoggerProvider.getOrCreate({ label, level });
   }
 
   getAuthorizationOptionsProvider(): IAsyncProvider<IEndpointAuthzOptions> {
@@ -61,20 +57,22 @@ export class GetPrometheusExporterMetricsEndpointV1
     return this.handleRequest.bind(this);
   }
 
+  public get oasPath(): (typeof OAS.paths)["/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-prometheus-exporter-metrics"] {
+    return OAS.paths[
+      "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-prometheus-exporter-metrics"
+    ];
+  }
+
   public getPath(): string {
-    return Constants.HTTP_PATH;
+    return this.oasPath.get["x-hyperledger-cactus"].http.path;
   }
 
   public getVerbLowerCase(): string {
-    return Constants.HTTP_VERB_LOWER_CASE;
+    return this.oasPath.get["x-hyperledger-cactus"].http.verbLowerCase;
   }
 
   public getOperationId(): string {
-    throw new Error("Method not implemented.");
-  }
-
-  public get oasPath(): string {
-    throw new Error("Method not implemented.");
+    return this.oasPath.get.operationId;
   }
 
   public async registerExpress(
@@ -90,14 +88,15 @@ export class GetPrometheusExporterMetricsEndpointV1
     this.log.debug(`${verbUpper} ${this.getPath()}`);
 
     try {
-      const resBody = await this.opts.connector.getPrometheusExporterMetrics();
+      const resBody =
+        await this.options.connector.getPrometheusExporterMetrics();
       res.status(200);
       res.send(resBody);
     } catch (ex) {
       this.log.error(`${fnTag} failed to serve request`, ex);
       res.status(500);
-      res.statusMessage = ex as string;
-      res.json({ error: ex });
+      res.statusMessage = ex.message;
+      res.json({ error: ex.stack });
     }
   }
 }
