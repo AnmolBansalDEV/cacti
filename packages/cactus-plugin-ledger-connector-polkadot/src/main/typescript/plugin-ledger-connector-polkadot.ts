@@ -433,49 +433,53 @@ export class PluginLedgerConnectorPolkadot
     const { mnemonic } =
       web3SigningCredential as Web3SigningCredentialMnemonicString;
     let success = false;
-    let transactionHash: string | undefined;
-    let blockHash: string | undefined;
-    try {
-      const keyring = new Keyring({ type: "sr25519" });
-      const accountPair = keyring.createFromUri(mnemonic);
-      const accountAddress = transactionConfig.to;
-      const transferValue = transactionConfig.value;
-      const txResult = await new Promise<{
-        success: boolean;
-        transactionHash: string;
-        blockhash: string;
-      }>((resolve, reject) =>
-        this.api?.tx.balances
-          .transfer(accountAddress, transferValue)
-          .signAndSend(accountPair, ({ events = [], status, txHash }) => {
-            if (status.isInBlock) {
-              // Check if the system.ExtrinsicSuccess event is present
-              const successEvent = events.find(
-                ({ event: { section, method } }) =>
-                  section === "system" && method === "ExtrinsicSuccess",
-              );
-              if (successEvent) {
-                resolve({
-                  success: true,
-                  blockhash: status.asInBlock.toHex(),
-                  transactionHash: txHash.toHex(),
-                });
-              } else {
-                reject("transaction not successful");
-                throw Error(
-                  `Transaction Failed: The expected system.ExtrinsicSuccess event was not detected.` +
-                    `events emitted are ${events}`,
+    const keyring = new Keyring({ type: "sr25519" });
+    const accountPair = keyring.createFromUri(mnemonic);
+    const accountAddress = transactionConfig.to;
+    const transferValue = transactionConfig.value;
+    const txResult = await new Promise<{
+      success: boolean;
+      transactionHash: string;
+      blockhash: string;
+    }>((resolve, reject) => {
+      if (!this.api) {
+        reject("transaction not successful");
+        throw Error(
+          "The operation has failed because the API is not connected to Substrate Node",
+        );
+      }
+      this.api.tx.balances
+        .transfer(accountAddress, transferValue)
+        .signAndSend(accountPair, ({ status, txHash, dispatchError }) => {
+          if (!this.api) {
+            throw Error(
+              "The operation has failed because the API is not connected to Substrate Node",
+            );
+          }
+          if (status.isInBlock) {
+            if (dispatchError) {
+              reject("transaction not successful");
+              if (dispatchError.isModule) {
+                const decoded = this.api.registry.findMetaError(
+                  dispatchError.asModule,
                 );
+                const { docs, name, section } = decoded;
+                throw Error(`${section}.${name}: ${docs.join(" ")}`);
+              } else {
+                throw Error(dispatchError.toString());
               }
             }
-          }),
-      );
-      success = txResult.success;
-      transactionHash = txResult.transactionHash;
-      blockHash = txResult.blockhash;
-    } catch (e) {
-      throw Error(`${fnTag} The transaction failed. ` + `InnerException: ${e}`);
-    }
+            resolve({
+              success: true,
+              blockhash: status.asInBlock.toHex(),
+              transactionHash: txHash.toHex(),
+            });
+          }
+        });
+    });
+    success = txResult.success;
+    const transactionHash = txResult.transactionHash;
+    const blockHash = txResult.blockhash;
     return {
       success,
       txHash: transactionHash,
@@ -496,9 +500,6 @@ export class PluginLedgerConnectorPolkadot
       "Starting api.rpc.author.submitAndWatchExtrinsic(transferSubmittable) ",
     );
     let success = false;
-    let txHash: string | undefined;
-    let blockHash: string | undefined;
-
     Checks.truthy(req, `${fnTag} req`);
     if (!this.api) {
       throw Error(
@@ -515,39 +516,38 @@ export class PluginLedgerConnectorPolkadot
       throw Error(`${fnTag} Transaction signature is not valid. `);
     }
 
-    try {
-      const txResult = await new Promise<{
-        success: boolean;
-        transactionHash: string;
-        blockhash: string;
-      }>((resolve, reject) => {
-        this.api?.rpc.author.submitAndWatchExtrinsic(
-          deserializedTransaction,
-          ({ isInBlock, hash, asInBlock, type }) => {
-            if (isInBlock) {
-              resolve({
-                success: true,
-                blockhash: asInBlock.toHex(),
-                transactionHash: hash.toHex(),
-              });
-            } else {
-              reject("transaction not successful");
-              throw Error(`transaction not submitted with status: ${type}`);
-            }
-          },
+    const txResult = await new Promise<{
+      success: boolean;
+      transactionHash: string;
+      blockhash: string;
+    }>((resolve, reject) => {
+      if (!this.api) {
+        reject("transaction not successful");
+        throw Error(
+          "The operation has failed because the API is not connected to Substrate Node",
         );
-      });
-
-      success = txResult.success;
-      txHash = txResult.transactionHash;
-      blockHash = txResult.blockhash;
-      this.prometheusExporter.addCurrentTransaction();
-    } catch (e) {
-      throw Error(
-        `${fnTag} The transaction submission failed. ` + `InnerException: ${e}`,
+      }
+      this.api.rpc.author.submitAndWatchExtrinsic(
+        deserializedTransaction,
+        ({ isInBlock, hash, asInBlock, type }) => {
+          if (isInBlock) {
+            resolve({
+              success: true,
+              blockhash: asInBlock.toHex(),
+              transactionHash: hash.toHex(),
+            });
+          } else {
+            reject("transaction not successful");
+            throw Error(`transaction not submitted with status: ${type}`);
+          }
+        },
       );
-    }
+    });
 
+    success = txResult.success;
+    const txHash = txResult.transactionHash;
+    const blockHash = txResult.blockhash;
+    this.prometheusExporter.addCurrentTransaction();
     return { success, txHash, blockHash };
   }
 
@@ -593,7 +593,6 @@ export class PluginLedgerConnectorPolkadot
       );
     }
     let success = false;
-    let contractAddress: string | undefined;
     const contractAbi = new Abi(
       req.metadata,
       this.api.registry.getChainProperties(),
@@ -607,77 +606,67 @@ export class PluginLedgerConnectorPolkadot
       refTime: req.gasLimit.refTime,
       proofSize: req.gasLimit.proofSize,
     });
-    try {
-      const keyring = new Keyring({ type: "sr25519" });
-      const accountPair = keyring.createFromUri(mnemonic);
-      const tx =
-        req.params && req.params.length > 0
-          ? contractCode.tx[contractAbi.constructors[0].method](
-              {
-                gasLimit,
-                storageDepositLimit: req.storageDepositLimit,
-                salt: req.salt,
-                value: req.balance,
-              },
-              ...req.params,
-            )
-          : contractCode.tx[contractAbi.constructors[0].method](
-              {
-                gasLimit,
-                storageDepositLimit: req.storageDepositLimit,
-                salt: req.salt,
-                value: req.balance,
-              },
-              undefined,
-            );
-      if (tx) {
-        // Use Promise to ensure signAndSend completes before continuing
-        const txResult = await new Promise<{
-          success: boolean;
-          address: string | undefined;
-        }>((resolve, reject) => {
-          tx.signAndSend(
-            accountPair,
-            //https://github.com/polkadot-js/api/issues/5722
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            ({ contract, status, dispatchError }) => {
-              if (!this.api) {
-                throw Error(
-                  "The operation has failed because the API is not connected to Substrate Node",
-                );
-              }
-              if (status.isInBlock || status.isFinalized) {
-                if (dispatchError) {
-                  reject("deployment not successful");
-                  if (dispatchError.isModule) {
-                    const decoded = this.api.registry.findMetaError(
-                      dispatchError.asModule,
-                    );
-                    const { docs, name, section } = decoded;
-                    throw Error(`${section}.${name}: ${docs.join(" ")}`);
-                  } else {
-                    throw Error(dispatchError.toString());
-                  }
-                }
-                resolve({
-                  success: true,
-                  address: contract.address.toString(),
-                });
-              }
+    const keyring = new Keyring({ type: "sr25519" });
+    const accountPair = keyring.createFromUri(mnemonic);
+    const tx =
+      req.params && req.params.length > 0
+        ? contractCode.tx[contractAbi.constructors[0].method](
+            {
+              gasLimit,
+              storageDepositLimit: req.storageDepositLimit,
+              salt: req.salt,
+              value: req.balance,
             },
+            ...req.params,
+          )
+        : contractCode.tx[contractAbi.constructors[0].method](
+            {
+              gasLimit,
+              storageDepositLimit: req.storageDepositLimit,
+              salt: req.salt,
+              value: req.balance,
+            },
+            undefined,
           );
-        });
-        success = txResult.success;
-        contractAddress = txResult.address;
-      }
-    } catch (e) {
-      throw Error(
-        `${fnTag} The contract upload and deployment failed. ` +
-          `InnerException: ${e}`,
+    const txResult = await new Promise<{
+      success: boolean;
+      address: string | undefined;
+    }>((resolve, reject) => {
+      tx.signAndSend(
+        accountPair,
+        //https://github.com/polkadot-js/api/issues/5722
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        ({ contract, status, dispatchError }) => {
+          if (!this.api) {
+            throw Error(
+              "The operation has failed because the API is not connected to Substrate Node",
+            );
+          }
+          if (status.isInBlock || status.isFinalized) {
+            if (dispatchError) {
+              reject("deployment not successful");
+              if (dispatchError.isModule) {
+                const decoded = this.api.registry.findMetaError(
+                  dispatchError.asModule,
+                );
+                const { docs, name, section } = decoded;
+                throw Error(`${section}.${name}: ${docs.join(" ")}`);
+              } else {
+                throw Error(dispatchError.toString());
+              }
+            }
+            resolve({
+              success: true,
+              address: contract.address.toString(),
+            });
+          }
+        },
       );
-    }
-    if (!contractAddress) {
+    });
+    success = txResult.success;
+    const contractAddress = txResult.address;
+    if (contractAddress) {
       this.prometheusExporter.addCurrentTransaction();
     }
 
@@ -871,46 +860,42 @@ export class PluginLedgerConnectorPolkadot
   ): Promise<TransactionInfoResponse> {
     const fnTag = `${this.className}#obtainTxInformation()`;
     Checks.truthy(req, `${fnTag} req`);
-
     this.log.info(`getTxFee`);
+    if (!this.api) {
+      throw Error(
+        "The operation has failed because the API is not connected to Substrate Node",
+      );
+    }
+    const accountAddress = req.accountAddress;
+    const transactionExpiration = (req.transactionExpiration as number) || 50;
     try {
-      if (this.api) {
-        const accountAddress = req.accountAddress;
-        const transactionExpiration =
-          (req.transactionExpiration as number) || 50;
-        const signedBlock = await this.api.rpc.chain.getBlock();
+      const signedBlock = await this.api.rpc.chain.getBlock();
+      const nonce = (await this.api.derive.balances.account(accountAddress))
+        .accountNonce;
+      const blockHash = signedBlock.block.header.hash;
+      const era = this.api.createType("ExtrinsicEra", {
+        current: signedBlock.block.header.number,
+        period: transactionExpiration,
+      });
 
-        const nonce = (await this.api.derive.balances.account(accountAddress))
-          .accountNonce;
-        const blockHash = signedBlock.block.header.hash;
-        const era = this.api.createType("ExtrinsicEra", {
-          current: signedBlock.block.header.number,
-          period: transactionExpiration,
-        });
+      const options = {
+        nonce: nonce,
+        blockHash: blockHash,
+        era: era,
+      };
 
-        const options = {
-          nonce: nonce,
-          blockHash: blockHash,
-          era: era,
-        };
+      const responseContainer = {
+        response_data: options,
+        succeeded: true,
+        message: "obtainTransactionInformation",
+        error: null,
+      };
 
-        const responseContainer = {
-          response_data: options,
-          succeeded: true,
-          message: "obtainTransactionInformation",
-          error: null,
-        };
+      const response: TransactionInfoResponse = {
+        responseContainer: responseContainer,
+      };
 
-        const response: TransactionInfoResponse = {
-          responseContainer: responseContainer,
-        };
-
-        return response;
-      } else {
-        throw Error(
-          "The operation has failed because the api is not connected to Substrate Node",
-        );
-      }
+      return response;
     } catch (e) {
       throw Error(
         `${fnTag} Obtaining info for this transaction has failed. ` +

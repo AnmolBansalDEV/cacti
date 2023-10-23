@@ -1,12 +1,6 @@
 import { PrometheusExporter } from "../../../main/typescript/prometheus-exporter/prometheus-exporter";
 import { AddressInfo } from "net";
 import { v4 as uuidv4 } from "uuid";
-import type { SignerOptions } from "@polkadot/api/submittable/types";
-import type {
-  CodecHash,
-  ExtrinsicEra,
-  Index,
-} from "@polkadot/types/interfaces";
 import { Configuration } from "@hyperledger/cactus-core-api";
 import { Keyring } from "@polkadot/api";
 import http from "http";
@@ -115,15 +109,14 @@ test(testCase, async (t: Test) => {
     t2.equal(infoForSigningTransaction.status, 200);
     const response = infoForSigningTransaction.data;
     t2.ok(response);
-    const nonce = response.responseContainer.response_data.nonce as Index;
+    const nonce = response.responseContainer.response_data.nonce;
     t2.ok(nonce);
-    const blockHash = response.responseContainer.response_data
-      .blockHash as CodecHash;
+    const blockHash = response.responseContainer.response_data.blockHash;
     t2.ok(blockHash);
-    const era = response.responseContainer.response_data.era as ExtrinsicEra;
+    const era = response.responseContainer.response_data.era;
     t2.ok(era);
 
-    const signingOptions: SignerOptions = {
+    const signingOptions = {
       nonce: nonce,
       blockHash: blockHash,
       era: era,
@@ -133,6 +126,8 @@ test(testCase, async (t: Test) => {
       to: bobPair.address,
       value: 20,
     });
+    t2.ok(transaction);
+    t2.ok(transaction.data.responseContainer.response_data.rawTransaction);
     const rawTransaction =
       transaction.data.responseContainer.response_data.rawTransaction;
 
@@ -144,8 +139,6 @@ test(testCase, async (t: Test) => {
     t2.ok(signedTransactionResponse.data.success);
     t2.ok(signedTransactionResponse.data.signedTransaction);
     t2.comment(`Signed transaction is: ${rawTransaction}`);
-
-    t2.ok(rawTransaction);
     const signedTransaction = signedTransactionResponse.data.signedTransaction;
     const TransactionDetails = await apiClient.runTransaction({
       web3SigningCredential: { type: "NONE" },
