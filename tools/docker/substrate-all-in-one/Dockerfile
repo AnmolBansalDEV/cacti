@@ -1,44 +1,31 @@
-FROM paritytech/ci-linux:production
-LABEL AUTHORS="Rafael Belchior, Catarina Pedreira"
-LABEL VERSION="2021-09-10"
-LABEL org.opencontainers.image.source=https://github.com/hyperledger/cactus
+FROM paritytech/ci-linux:production as builder
 
-WORKDIR /
-ARG WORKING_DIR=/var/www/node-template
-ARG CONTAINER_NAME=contracts-node-template-cactus
-ARG CARGO_HOME=/var/www/node-template/.cargo
-
-# Specify HTTP RPC server TCP port
-ENV RPC_PORT=9618
-
-#Specify WebSockets RPC server TCP port
-ENV CARGO_HOME=/var/www/node-template/.cargo
-ENV CACTUS_CFG_PATH=/etc/hyperledger/cactus
-
-VOLUME .:/var/www/node-template
-
-RUN apt update
-
-# Get ubuntu and rust packages
-RUN apt install -y build-essential pkg-config git clang make curl libssl-dev llvm libudev-dev
-
-ENV CACTUS_CFG_PATH=/etc/hyperledger/cactus
-RUN mkdir -p $CACTUS_CFG_PATH
-
-RUN set -e
-
-RUN echo "*** Instaling Rust environment ***"
-RUN curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -y -sSf | sh
-RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
-RUN rustup default nightly
-
-RUN echo "*** Initializing WASM build environment"
-RUN rustup target add wasm32-unknown-unknown --toolchain nightly
-
-RUN echo "*** Installing Substrate node environment ***"
 RUN cargo install contracts-node --git https://github.com/paritytech/substrate-contracts-node.git --force --locked
 
-# COPY start.sh /
+## second stage
+FROM ubuntu:20.04
 
-RUN echo "*** Start Substrate node template ***"
-CMD [ "/var/www/node-template/.cargo/bin/substrate-contracts-node", "--dev", "--unsafe-rpc-external"]
+COPY --from=builder /usr/local/cargo/bin/substrate-contracts-node /usr/local/bin/
+
+RUN apt-get update && apt-get install -y supervisor \
+    && apt-get install wget -y \
+    && wget -qO /usr/local/bin/websocat https://github.com/vi/websocat/releases/download/v1.11.0/websocat.x86_64-unknown-linux-musl \
+    && chmod a+x /usr/local/bin/websocat
+
+COPY ./healthcheck.sh /usr/bin/
+
+RUN chmod a+x /usr/bin/healthcheck.sh
+
+HEALTHCHECK --interval=10s --timeout=10s --start-period=30s --retries=10 \
+    CMD ["/usr/bin/healthcheck.sh"]
+
+# for substrate node
+EXPOSE 9944
+# for supervisord
+EXPOSE 9001
+
+COPY supervisord.conf /etc/supervisord.conf
+
+ENTRYPOINT ["/usr/bin/supervisord"]
+
+CMD ["--configuration", "/etc/supervisord.conf", "--nodaemon"]
