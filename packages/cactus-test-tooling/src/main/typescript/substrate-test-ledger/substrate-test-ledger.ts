@@ -57,7 +57,7 @@ export class SubstrateTestLedger {
     this.publishAllPorts = opts.publishAllPorts;
     this._containerId = Optional.empty();
     this.imageName = opts.imageName || "docker.io/anmol02/cactus-substrate-aio";
-    this.imageTag = opts.imageTag || "2023-08-28";
+    this.imageTag = opts.imageTag || "2023-10-28";
     this.imageFqn = `${this.imageName}:${this.imageTag}`;
     this.envVars = opts.envVars || new Map();
     this.emitContainerLogs = Bools.isBooleanStrict(opts.emitContainerLogs)
@@ -103,7 +103,7 @@ export class SubstrateTestLedger {
       Healthcheck: {
         Test: [
           "CMD-SHELL",
-          "exit 0", // This command will always return a successful exit code (0)
+          `(echo '{"id":1,"jsonrpc":"2.0","method":"system_health","params":[]}' | websocat -n1  ws://127.0.0.1:9944) > /dev/null; echo $?`,
         ],
         Interval: 1000000000, // 1 second
         Timeout: 3000000000, // 3 seconds
@@ -170,9 +170,7 @@ export class SubstrateTestLedger {
           this.log.debug(`Starting to wait for healthcheck... `);
           await Containers.waitForHealthCheck(this.containerId.get());
           this.log.debug(`Healthcheck passed OK`);
-          setTimeout(() => {
-            resolve(container);
-          }, 30000);
+          resolve(container);
         } catch (ex) {
           this.log.error(ex);
           reject(ex);
