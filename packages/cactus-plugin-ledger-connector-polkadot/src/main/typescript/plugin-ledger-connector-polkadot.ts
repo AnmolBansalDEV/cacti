@@ -305,7 +305,7 @@ export class PluginLedgerConnectorPolkadot
     try {
       const accountAddress = req.to;
       const transferValue = req.value;
-      const rawTransaction = this.api.tx["balances"]["transfer"](
+      const rawTransaction = this.api.tx.balances.transferAllowDeath(
         accountAddress,
         transferValue,
       );
@@ -449,7 +449,7 @@ export class PluginLedgerConnectorPolkadot
         );
       }
       this.api.tx.balances
-        .transfer(accountAddress, transferValue)
+        .transferAllowDeath(accountAddress, transferValue)
         .signAndSend(accountPair, ({ status, txHash, dispatchError }) => {
           if (!this.api) {
             throw Error(
