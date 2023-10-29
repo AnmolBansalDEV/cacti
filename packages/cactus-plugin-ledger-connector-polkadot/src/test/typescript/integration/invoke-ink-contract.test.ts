@@ -1,4 +1,3 @@
-import { PrometheusExporter } from "../../../main/typescript/prometheus-exporter/prometheus-exporter";
 import {
   IListenOptions,
   LogLevelDesc,
@@ -26,9 +25,6 @@ const testCase = "invoke contract with all invocation types";
 const logLevel: LogLevelDesc = "TRACE";
 const DEFAULT_WSPROVIDER = "ws://127.0.0.1:9944";
 const instanceId = "test-polkadot-connector";
-const prometheus: PrometheusExporter = new PrometheusExporter({
-  pollingIntervalInMin: 1,
-});
 
 test("BEFORE " + testCase, async (t: Test) => {
   const pruning = pruneDockerAllIfGithubAction({ logLevel });
@@ -63,7 +59,6 @@ test(testCase, async (t: Test) => {
   });
   const connectorOptions: IPluginLedgerConnectorPolkadotOptions = {
     logLevel: logLevel,
-    prometheusExporter: prometheus,
     pluginRegistry: new PluginRegistry({ plugins: [keychainPlugin] }),
     wsProviderUrl: DEFAULT_WSPROVIDER,
     instanceId: instanceId,

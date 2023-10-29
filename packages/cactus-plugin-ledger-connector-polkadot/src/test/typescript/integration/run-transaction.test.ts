@@ -1,4 +1,3 @@
-import { PrometheusExporter } from "../../../main/typescript/prometheus-exporter/prometheus-exporter";
 import { AddressInfo } from "net";
 import { v4 as uuidv4 } from "uuid";
 import { Configuration } from "@hyperledger/cactus-core-api";
@@ -20,14 +19,12 @@ import {
 } from "../../../main/typescript/public-api";
 import { PluginRegistry } from "@hyperledger/cactus-core";
 import { PluginKeychainMemory } from "@hyperledger/cactus-plugin-keychain-memory";
+import { K_CACTUS_POLKADOT_TOTAL_TX_COUNT } from "../../../main/typescript/prometheus-exporter/metrics";
 
 const testCase = "transact through all available methods  ";
 const logLevel: LogLevelDesc = "TRACE";
 const DEFAULT_WSPROVIDER = "ws://127.0.0.1:9944";
 const instanceId = "test-polkadot-connector";
-const prometheus: PrometheusExporter = new PrometheusExporter({
-  pollingIntervalInMin: 1,
-});
 
 test("BEFORE " + testCase, async (t: Test) => {
   const pruning = pruneDockerAllIfGithubAction({ logLevel });
@@ -62,7 +59,6 @@ test(testCase, async (t: Test) => {
   });
   const connectorOptions: IPluginLedgerConnectorPolkadotOptions = {
     logLevel: logLevel,
-    prometheusExporter: prometheus,
     pluginRegistry: new PluginRegistry({ plugins: [keychainPlugin] }),
     wsProviderUrl: DEFAULT_WSPROVIDER,
     instanceId: instanceId,
@@ -194,6 +190,28 @@ test(testCase, async (t: Test) => {
     t4.ok(transactionResponse.txHash);
     t4.ok(transactionResponse.blockHash);
     t4.end();
+  });
+  test("get prometheus exporter metrics", async (t5: Test) => {
+    const res = await apiClient.getPrometheusMetrics();
+    const promMetricsOutput =
+      "# HELP " +
+      K_CACTUS_POLKADOT_TOTAL_TX_COUNT +
+      " Total transactions executed\n" +
+      "# TYPE " +
+      K_CACTUS_POLKADOT_TOTAL_TX_COUNT +
+      " gauge\n" +
+      K_CACTUS_POLKADOT_TOTAL_TX_COUNT +
+      '{type="' +
+      K_CACTUS_POLKADOT_TOTAL_TX_COUNT +
+      '"} 3';
+    t5.ok(res, "Response truthy OK");
+    t5.ok(res.data);
+    t5.equal(res.status, 200);
+    t5.true(
+      res.data.includes(promMetricsOutput),
+      "Total Transaction Count equals 3 OK.",
+    );
+    t5.end();
   });
   t.end();
 });
