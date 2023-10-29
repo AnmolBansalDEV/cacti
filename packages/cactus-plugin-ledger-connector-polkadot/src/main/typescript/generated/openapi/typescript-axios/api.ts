@@ -670,7 +670,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getPrometheusExporterMetricsV1: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getPrometheusMetrics: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-prometheus-exporter-metrics`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -891,8 +891,8 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getPrometheusExporterMetricsV1(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getPrometheusExporterMetricsV1(options);
+        async getPrometheusMetrics(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getPrometheusMetrics(options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
         /**
@@ -976,8 +976,8 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getPrometheusExporterMetricsV1(options?: any): AxiosPromise<string> {
-            return localVarFp.getPrometheusExporterMetricsV1(options).then((request) => request(axios, basePath));
+        getPrometheusMetrics(options?: any): AxiosPromise<string> {
+            return localVarFp.getPrometheusMetrics(options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -1058,8 +1058,8 @@ export class DefaultApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof DefaultApi
      */
-    public getPrometheusExporterMetricsV1(options?: AxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).getPrometheusExporterMetricsV1(options).then((request) => request(this.axios, this.basePath));
+    public getPrometheusMetrics(options?: AxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getPrometheusMetrics(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

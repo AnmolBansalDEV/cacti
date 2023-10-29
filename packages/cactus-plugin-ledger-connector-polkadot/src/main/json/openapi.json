@@ -549,7 +549,7 @@
             "path": "/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-prometheus-exporter-metrics"
           }
         },
-        "operationId": "getPrometheusExporterMetricsV1",
+        "operationId": "getPrometheusMetrics",
         "summary": "Get the Prometheus Metrics",
         "parameters": [],
         "responses": {

@@ -9,9 +9,9 @@ import { CodePromise, Abi, ContractPromise } from "@polkadot/api-contract";
 import { isHex } from "@polkadot/util";
 import { PrometheusExporter } from "./prometheus-exporter/prometheus-exporter";
 import {
-  GetPrometheusExporterMetricsEndpointV1,
-  IGetPrometheusExporterMetricsEndpointV1Options,
-} from "./web-services/get-prometheus-exporter-metrics-endpoint-v1";
+  GetPrometheusMetricsEndpoint,
+  IGetPrometheusMetricsEndpointOptions,
+} from "./web-services/get-prometheus-exporter-metrics-endpoint";
 
 import "multer";
 import { Optional } from "typescript-optional";
@@ -183,12 +183,12 @@ export class PluginLedgerConnectorPolkadot
 
     const endpoints: IWebServiceEndpoint[] = [];
     {
-      const opts: IGetPrometheusExporterMetricsEndpointV1Options = {
+      const opts: IGetPrometheusMetricsEndpointOptions = {
         connector: this,
         logLevel: this.opts.logLevel,
       };
 
-      const endpoint = new GetPrometheusExporterMetricsEndpointV1(opts);
+      const endpoint = new GetPrometheusMetricsEndpoint(opts);
       endpoints.push(endpoint);
     }
     {
@@ -469,6 +469,7 @@ export class PluginLedgerConnectorPolkadot
                 throw Error(dispatchError.toString());
               }
             }
+            this.prometheusExporter.addCurrentTransaction();
             resolve({
               success: true,
               blockhash: status.asInBlock.toHex(),
@@ -531,6 +532,7 @@ export class PluginLedgerConnectorPolkadot
         deserializedTransaction,
         ({ isInBlock, hash, asInBlock, type }) => {
           if (isInBlock) {
+            this.prometheusExporter.addCurrentTransaction();
             resolve({
               success: true,
               blockhash: asInBlock.toHex(),
@@ -547,7 +549,6 @@ export class PluginLedgerConnectorPolkadot
     success = txResult.success;
     const txHash = txResult.transactionHash;
     const blockHash = txResult.blockhash;
-    this.prometheusExporter.addCurrentTransaction();
     return { success, txHash, blockHash };
   }
 
@@ -656,6 +657,7 @@ export class PluginLedgerConnectorPolkadot
                 throw Error(dispatchError.toString());
               }
             }
+            this.prometheusExporter.addCurrentTransaction();
             resolve({
               success: true,
               address: contract.address.toString(),
@@ -666,10 +668,6 @@ export class PluginLedgerConnectorPolkadot
     });
     success = txResult.success;
     const contractAddress = txResult.address;
-    if (contractAddress) {
-      this.prometheusExporter.addCurrentTransaction();
-    }
-
     return {
       success: success,
       contractAddress: contractAddress,
@@ -825,6 +823,7 @@ export class PluginLedgerConnectorPolkadot
                 throw Error(dispatchError.toString());
               }
             }
+            this.prometheusExporter.addCurrentTransaction();
             resolve({
               success: true,
               transactionHash: txHash.toHex(),

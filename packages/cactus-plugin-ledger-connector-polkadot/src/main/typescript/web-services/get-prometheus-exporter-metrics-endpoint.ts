@@ -20,20 +20,20 @@ import {
 
 import { PluginLedgerConnectorPolkadot } from "../plugin-ledger-connector-polkadot";
 
-export interface IGetPrometheusExporterMetricsEndpointV1Options {
+export interface IGetPrometheusMetricsEndpointOptions {
   connector: PluginLedgerConnectorPolkadot;
   logLevel?: LogLevelDesc;
 }
 
-export class GetPrometheusExporterMetricsEndpointV1
+export class GetPrometheusMetricsEndpoint
   implements IWebServiceEndpoint
 {
   private readonly log: Logger;
 
   constructor(
-    public readonly options: IGetPrometheusExporterMetricsEndpointV1Options,
+    public readonly options: IGetPrometheusMetricsEndpointOptions,
   ) {
-    const fnTag = "GetPrometheusExporterMetricsEndpointV1#constructor()";
+    const fnTag = "GetPrometheusExporterEndpoint#constructor()";
 
     Checks.truthy(options, `${fnTag} options`);
     Checks.truthy(options.connector, `${fnTag} options.connector`);
