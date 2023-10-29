@@ -57,7 +57,7 @@ export class SubstrateTestLedger {
     this.publishAllPorts = opts.publishAllPorts;
     this._containerId = Optional.empty();
     this.imageName = opts.imageName || "docker.io/anmol02/cactus-substrate-aio";
-    this.imageTag = opts.imageTag || "2023-10-28";
+    this.imageTag = opts.imageTag || "2023-10-29";
     this.imageFqn = `${this.imageName}:${this.imageTag}`;
     this.envVars = opts.envVars || new Map();
     this.emitContainerLogs = Bools.isBooleanStrict(opts.emitContainerLogs)

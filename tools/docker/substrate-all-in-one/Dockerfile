@@ -1,6 +1,6 @@
 FROM paritytech/ci-linux:production as builder
 
-RUN cargo install contracts-node --git https://github.com/paritytech/substrate-contracts-node.git --force --locked
+RUN cargo install contracts-node
 
 ## second stage
 FROM ubuntu:20.04
