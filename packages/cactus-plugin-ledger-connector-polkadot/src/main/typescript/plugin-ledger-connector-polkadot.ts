@@ -6,7 +6,7 @@ import { WsProvider } from "@polkadot/rpc-provider/ws";
 import { RuntimeError } from "run-time-error";
 import { WeightV2 } from "@polkadot/types/interfaces";
 import { CodePromise, Abi, ContractPromise } from "@polkadot/api-contract";
-import { isHex } from "@polkadot/util";
+import { isHex, stringCamelCase } from "@polkadot/util";
 import { PrometheusExporter } from "./prometheus-exporter/prometheus-exporter";
 import {
   GetPrometheusMetricsEndpoint,
@@ -609,26 +609,17 @@ export class PluginLedgerConnectorPolkadot
     });
     const keyring = new Keyring({ type: "sr25519" });
     const accountPair = keyring.createFromUri(mnemonic);
-    const tx =
-      req.params && req.params.length > 0
-        ? contractCode.tx[contractAbi.constructors[0].method](
-            {
-              gasLimit,
-              storageDepositLimit: req.storageDepositLimit,
-              salt: req.salt,
-              value: req.balance,
-            },
-            ...req.params,
-          )
-        : contractCode.tx[contractAbi.constructors[0].method](
-            {
-              gasLimit,
-              storageDepositLimit: req.storageDepositLimit,
-              salt: req.salt,
-              value: req.balance,
-            },
-            undefined,
-          );
+    const params = req.params ?? [];
+    const constructorMethod = req.constructorMethod ?? 'new'
+    const tx = contractCode.tx[stringCamelCase(constructorMethod)](
+      {
+        gasLimit,
+        storageDepositLimit: req.storageDepositLimit,
+        salt: req.salt,
+        value: req.balance,
+      },
+      ...params,
+    );
     const txResult = await new Promise<{
       success: boolean;
       address: string | undefined;
@@ -709,9 +700,10 @@ export class PluginLedgerConnectorPolkadot
       req.metadata,
       this.api.registry.getChainProperties(),
     );
+    const methodName = stringCamelCase(req.methodName);
     const isSafeToCall = await this.isSafeToCallContractMethod(
       contractAbi,
-      req.methodName,
+      methodName,
     );
     if (!isSafeToCall) {
       throw new RuntimeError(
@@ -729,22 +721,16 @@ export class PluginLedgerConnectorPolkadot
     });
     if (req.invocationType === PolkadotContractInvocationType.Query) {
       let success = false;
-      const query =
-        req.params && req.params.length > 0
-          ? contract.query[req.methodName](
+      const params = req.params ?? []
+      const query = contract.query[methodName](
               req.accountAddress,
               {
                 gasLimit,
                 storageDepositLimit: req.storageDepositLimit,
                 value: req.balance,
               },
-              ...req.params,
+              ...params,
             )
-          : contract.query[req.methodName](req.accountAddress, {
-              gasLimit,
-              storageDepositLimit: req.storageDepositLimit,
-              value: req.balance,
-            });
       const callOutput = await query;
       success = true;
       return { success, callOutput };
@@ -784,21 +770,15 @@ export class PluginLedgerConnectorPolkadot
       const keyring = new Keyring({ type: "sr25519" });
       const accountPair = keyring.createFromUri(mnemonic);
       let success = false;
-      const tx =
-        req.params && req.params.length > 0
-          ? contract.tx[req.methodName](
+      const params = req.params ?? []
+      const tx = contract.tx[methodName](
               {
                 gasLimit,
                 storageDepositLimit: req.storageDepositLimit,
                 value: req.balance,
               },
-              ...req.params,
+              ...params,
             )
-          : contract.tx[req.methodName]({
-              gasLimit,
-              storageDepositLimit: req.storageDepositLimit,
-              value: req.balance,
-            });
       const txResult = await new Promise<{
         success: boolean;
         transactionHash: string;

@@ -46,6 +46,12 @@ export interface DeployContractInkRequest {
      * @type {PolkadotTransactionConfigTransferSubmittable}
      * @memberof DeployContractInkRequest
      */
+    'constructorMethod'?: PolkadotTransactionConfigTransferSubmittable;
+    /**
+     * 
+     * @type {PolkadotTransactionConfigTransferSubmittable}
+     * @memberof DeployContractInkRequest
+     */
     'metadata': PolkadotTransactionConfigTransferSubmittable;
     /**
      * 

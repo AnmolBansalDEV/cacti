@@ -351,6 +351,13 @@
               "format": "byte",
               "nullable": false
             },
+            "constructorMethod": {
+              "oneOf": [
+                {
+                  "type": "string"
+                }
+              ]
+            },
             "metadata": {
               "oneOf": [
                 {
