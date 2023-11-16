@@ -160,16 +160,16 @@ export class PluginLedgerConnectorPolkadot
   public setProvider(wsProviderUrl: string): void {
     try {
       this.wsProvider = new WsProvider(wsProviderUrl, this.autoConnect);
-    } catch (e) {
-      throw Error(`Could not create wsProvider. InnerException: + ${e}`);
+    } catch (err) {
+      throw Error(`Could not create wsProvider. InnerException: + ${err}`);
     }
   }
 
   public async createAPI(): Promise<void> {
     try {
       this.api = await ApiPromise.create({ provider: this.wsProvider });
-    } catch (e) {
-      throw Error("Could not create API");
+    } catch (err) {
+      throw Error(`Could not create API. InnerException: + ${err}`);
     }
   }
 
@@ -322,10 +322,10 @@ export class PluginLedgerConnectorPolkadot
         responseContainer: responseContainer,
       };
       return response;
-    } catch (e) {
+    } catch (err) {
       throw Error(
         `${fnTag} Obtaining raw transaction has failed. ` +
-          `InnerException: ${e}`,
+          `InnerException: ${err}`,
       );
     }
   }
@@ -354,10 +354,10 @@ export class PluginLedgerConnectorPolkadot
         signedTransaction: serializedSignedTransaction,
       };
       return response;
-    } catch (e) {
+    } catch (err) {
       throw Error(
         `${fnTag} signing raw transaction has failed. ` +
-          `InnerException: ${e}`,
+          `InnerException: ${err}`,
       );
     }
   }
@@ -875,10 +875,10 @@ export class PluginLedgerConnectorPolkadot
       };
 
       return response;
-    } catch (e) {
+    } catch (err) {
       throw Error(
         `${fnTag} Obtaining info for this transaction has failed. ` +
-          `InnerException: ${e}`,
+          `InnerException: ${err}`,
       );
     }
   }
@@ -893,9 +893,9 @@ export class PluginLedgerConnectorPolkadot
           "Trying to shutdown connection to substrate, but no connection is available",
         );
       }
-    } catch (error) {
+    } catch (err) {
       this.log.error("Could not disconnect from Substrate Ledger");
-      throw new Error("Could not disconnect from Substrate Ledger");
+      throw new Error(`Could not disconnect from Substrate Ledger. InnerException: ${err} `);
     }
   }
 }
