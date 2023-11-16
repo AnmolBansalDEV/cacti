@@ -1,6 +1,6 @@
 {
   "name": "@hyperledger/cactus-plugin-ledger-connector-polkadot",
-  "version": "1.1.2",
+  "version": "2.0.0-alpha.2",
   "description": "Allows Cactus nodes to connect to a Substrate ledger.",
   "main": "dist/lib/main/typescript/index.js",
   "mainMinified": "dist/cactus-plugin-ledger-connector-polkadot.node.umd.min.js",
@@ -75,9 +75,9 @@
   },
   "homepage": "https://github.com/hyperledger/cactus#readme",
   "dependencies": {
-    "@hyperledger/cactus-common": "1.1.2",
-    "@hyperledger/cactus-core": "1.1.2",
-    "@hyperledger/cactus-core-api": "1.1.2",
+    "@hyperledger/cactus-common": "2.0.0-alpha.2",
+    "@hyperledger/cactus-core": "2.0.0-alpha.2",
+    "@hyperledger/cactus-core-api": "2.0.0-alpha.2",
     "@polkadot/api": "10.9.1",
     "@polkadot/api-contract": "10.9.1",
     "@polkadot/rpc-provider": "10.9.1",
@@ -101,7 +101,7 @@
   "devDependencies": {
     "@hyperledger/cactus-plugin-keychain-memory": "2.0.0-alpha.1",
     "@hyperledger/cactus-test-tooling": "2.0.0-alpha.2",
-    "@types/express": "4.17.13",
+    "@types/express": "4.17.19",
     "@types/joi": "14.3.4",
     "@types/multer": "1.4.7",
     "@types/ssh2": "0.5.44",
