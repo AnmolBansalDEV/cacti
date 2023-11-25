@@ -141,6 +141,25 @@ export interface DeployContractInkResponse {
     'contractAddress'?: string;
 }
 /**
+ * Error response from the connector.
+ * @export
+ * @interface ErrorExceptionResponse
+ */
+export interface ErrorExceptionResponse {
+    /**
+     * Short error description message.
+     * @type {string}
+     * @memberof ErrorExceptionResponse
+     */
+    'message': string;
+    /**
+     * Detailed error information.
+     * @type {string}
+     * @memberof ErrorExceptionResponse
+     */
+    'error': string;
+}
+/**
  * 
  * @export
  * @interface InvokeContractRequest

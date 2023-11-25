@@ -544,6 +544,23 @@
               "nullable": false
             }
           }
+        },
+        "ErrorExceptionResponse": {
+          "type": "object",
+          "description": "Error response from the connector.",
+          "required": ["message", "error"],
+          "properties": {
+            "message": {
+              "type": "string",
+              "description": "Short error description message.",
+              "nullable": false
+            },
+            "error": {
+              "type": "string",
+              "description": "Detailed error information.",
+              "nullable": false
+            }
+          }
         }
       }
     },
@@ -566,6 +583,16 @@
               "text/plain": {
                 "schema": {
                   "$ref": "#/components/schemas/PrometheusExporterMetricsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorExceptionResponse"
                 }
               }
             }
@@ -603,6 +630,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorExceptionResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -634,6 +671,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RawTransactionResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorExceptionResponse"
                 }
               }
             }
@@ -671,6 +718,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorExceptionResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -702,6 +759,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RunTransactionResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorExceptionResponse"
                 }
               }
             }
@@ -739,6 +806,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorExceptionResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -770,6 +847,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InvokeContractResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorExceptionResponse"
                 }
               }
             }
