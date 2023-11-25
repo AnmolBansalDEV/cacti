@@ -4,6 +4,7 @@ import {
   LoggerProvider,
   LogLevelDesc,
   Checks,
+  safeStringifyException,
   IAsyncProvider,
 } from "@hyperledger/cactus-common";
 
@@ -92,7 +93,7 @@ export class DeployContractInkEndpoint implements IWebServiceEndpoint {
       this.log.error(`Crash while serving ${reqTag}`, ex);
       res.status(500).json({
         message: "Internal Server Error",
-        error: ex?.stack || ex?.message,
+        error: safeStringifyException(ex),
       });
     }
   }
