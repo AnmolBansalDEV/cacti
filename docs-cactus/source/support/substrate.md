@@ -11,6 +11,6 @@ Substrate chains include Polkadot, Kusama, Rococco, etc. The deployContract feat
 
   | Substrate API version | deployContract* | invokeContract | runTransaction |
   | --- | :---: | :---: | :---: |
-  | @polkadot/api 6.2.1 | ✅ [test]() | ✅ [test]() | ✅ [test]() |
+  | @polkadot/api 10.9.1 | ✅ [test]() | ✅ [test]() | ✅ [test]() |
 
 </details>
