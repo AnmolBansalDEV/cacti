@@ -5,7 +5,7 @@
     "description": "Can perform basic tasks on a Polkadot parachain",
     "version": "v2.0.0-alpha.2",
     "license": {
-      "name": "Apache 2.0",
+      "name": "Apache-2.0",
       "url": "https://www.apache.org/licenses/LICENSE-2.0.html"
     }
   },

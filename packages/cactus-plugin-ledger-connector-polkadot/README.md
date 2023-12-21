@@ -11,7 +11,6 @@
 - [3. Containerization](#3-containerization)
   - [3.1. Building/running the container image locally](#31-buildingrunning-the-container-image-locally)
   - [3.2. Running the container](#32-running-the-container)
-  - [3.3. Testing API calls with the container](#33-testing-api-calls-with-the-container)
 - [4. Prometheus Exporter](#4-prometheus-exporter)
   - [4.1. Usage Prometheus](#41-usage-prometheus)
   - [4.2. Prometheus Integration](#42-prometheus-integration)
@@ -112,16 +111,16 @@ The sequence diagrams for various endpoints are mentioned below
 
 ### 2.1. run-transaction-endpoint
 
-![run-transaction-endpoint sequence diagram](docs/architecture/images/run-transaction-endpoint.png)
-The above diagram shows the sequence diagram of run-transaction-endpoint. User A (One of the many Users) interacts with the API Client which in turn, calls the API server. API server then executes transact() method which is explained in detailed in the subsequent diagrams.
-![run-transaction-endpoint transact() method](docs/architecture/images/run-transaction-endpoint-transact.png)
+![run-transaction-endpoint sequence diagram](docs/architecture/images/run-transaction-endpoint.png)  
+The above diagram shows the sequence diagram of run-transaction-endpoint. User A (One of the many Users) interacts with the API Client which in turn, calls the API server. API server then executes transact() method which is explained in detailed in the subsequent diagrams.  
+![run-transaction-endpoint transact() method](docs/architecture/images/run-transaction-endpoint-transact.png)  
 The above diagram shows the sequence diagram of transact() method of the PluginLedgerConnectorPolkadot class. The caller to this function, which in reference to the above sequence diagram is API server, sends RunTransactionRequest object as an argument to the transact() method. Based on the type of Web3SigningCredentialType, corresponding responses are sent back to the caller.  
-![run-transaction-endpoint transactCactusKeychainRef() method](docs/architecture/images/run-transaction-endpoint-transact-cactuskeychainref.png)
-The above diagram shows transactCactusKeychainReference() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is CACTUSKEYCHAINREF. This method inturn calls transactMnemonicString() which calls the signAndSend() method of the Polkadot library. 
-![runtransaction-endpoint transactMnemonicString() method](docs/architecture/images/run-transaction-endpoint-transact-mnemonicstring.png)
-The above diagram shows transactMnemonicString() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is MNEMONICSTRING. This method then calls the signAndSend() method of the Polkadot library.
-![run-transaction-endpoint transactSigned() method](docs/architecture/images/run-transaction-endpoint-transact-signed.png)
-The above diagram shows transactSigned() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is NONE. This method calls the api.rpc.author.submitAndWatchExtrinsic() of the Polkadot library.
+![run-transaction-endpoint transactCactusKeychainRef() method](docs/architecture/images/run-transaction-endpoint-transact-cactuskeychainref.png)  
+The above diagram shows transactCactusKeychainReference() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is CACTUSKEYCHAINREF. This method inturn calls transactMnemonicString() which calls the signAndSend() method of the Polkadot library.  
+![runtransaction-endpoint transactMnemonicString() method](docs/architecture/images/run-transaction-endpoint-transact-mnemonicstring.png)  
+The above diagram shows transactMnemonicString() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is MNEMONICSTRING. This method then calls the signAndSend() method of the Polkadot library.  
+![run-transaction-endpoint transactSigned() method](docs/architecture/images/run-transaction-endpoint-transact-signed.png)  
+The above diagram shows transactSigned() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is NONE. This method calls the api.rpc.author.submitAndWatchExtrinsic() of the Polkadot library.  
 
 
 ## 3. Containerization
@@ -140,155 +139,13 @@ DOCKER_BUILDKIT=1 docker build --build-arg NPM_PKG_VERSION=0.4.1 -f ./packages/c
 
 ### 3.2. Running the container
 
-Launch container with plugin configuration as an **environment variable**:
+Launch container:
 ```sh
 docker run \
   --rm \
-  --publish 3000:3000 \
-  --publish 4000:4000 \
-  --env PLUGINS='[{"packageName": "@hyperledger/cactus-plugin-ledger-connector-fabric", "type": "org.hyperledger.cactus.plugin_import_type.LOCAL", "action": "org.hyperledger.cactus.plugin_import_action.INSTALL",  "options": {"instanceId": "some-unique-fabric-connector-instance-id", "dockerBinary": "usr/local/bin/docker","cliContainerEnv": {
-    "CORE_PEER_LOCALMSPID": "Org1MSP",
-    "CORE_PEER_ADDRESS": "peer0.org1.example.com:7051",
-    "CORE_PEER_MSPCONFIGPATH":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
-    "CORE_PEER_TLS_ROOTCERT_FILE":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt",
-    "ORDERER_TLS_ROOTCERT_FILE":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
-  },
-  "discoveryOptions": {
-    "enabled": true,
-    "asLocalhost": true
-  }
-  }}}]' \
+  --publish 9944:9944 \
   cplcb
 ```
-
-Launch container with plugin configuration as a **CLI argument**:
-```sh
-docker run \
-  --rm \
-  --publish 3000:3000 \
-   --publish 4000:4000 \
-  cplcb \
-    ./node_modules/.bin/cactusapi \
-    --plugins='[{"packageName": "@hyperledger/cactus-plugin-ledger-connector-fabric", "type": "org.hyperledger.cactus.plugin_import_type.LOCAL", "action": "org.hyperledger.cactus.plugin_import_action.INSTALL",  "options": {"instanceId": "some-unique-fabric-connector-instance-id", "dockerBinary": "usr/local/bin/docker","cliContainerEnv": {
-    "CORE_PEER_LOCALMSPID": "Org1MSP",
-    "CORE_PEER_ADDRESS": "peer0.org1.example.com:7051",
-    "CORE_PEER_MSPCONFIGPATH":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
-    "CORE_PEER_TLS_ROOTCERT_FILE":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt",
-    "ORDERER_TLS_ROOTCERT_FILE":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
-  },
-  "discoveryOptions": {
-    "enabled": true,
-    "asLocalhost": true
-  }
-  }}}]'
-```
-
-Launch container with **configuration file** mounted from host machine:
-```sh
-
-echo '[{"packageName": "@hyperledger/cactus-plugin-ledger-connector-fabric", "type": "org.hyperledger.cactus.plugin_import_type.LOCAL", "action": "org.hyperledger.cactus.plugin_import_action.INSTALL",  "options": {"instanceId": "some-unique-fabric-connector-instance-id", "dockerBinary": "usr/local/bin/docker","cliContainerEnv": {
-    "CORE_PEER_LOCALMSPID": "Org1MSP",
-    "CORE_PEER_ADDRESS": "peer0.org1.example.com:7051",
-    "CORE_PEER_MSPCONFIGPATH":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
-    "CORE_PEER_TLS_ROOTCERT_FILE":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt",
-    "ORDERER_TLS_ROOTCERT_FILE":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
-  },
-  "discoveryOptions": {
-    "enabled": true,
-    "asLocalhost": true
-  }
-  }}}]' > cactus.json
-
-docker run \
-  --rm \
-  --publish 3000:3000 \
-  --publish 4000:4000 \
-  --mount type=bind,source="$(pwd)"/cactus.json,target=/cactus.json \
-  cplcb \
-    ./node_modules/.bin/cactusapi \
-    --config-file=/cactus.json
-```
-
-### 3.3. Testing API calls with the container
-
-Don't have a fabric network on hand to test with? Test or develop against our fabric All-In-One container!
-
-**Terminal Window 1 (Ledger)**
-```sh
-docker run --privileged -p 0.0.0.0:8545:8545/tcp  -p 0.0.0.0:8546:8546/tcp  -p 0.0.0.0:8888:8888/tcp  -p 0.0.0.0:9001:9001/tcp  -p 0.0.0.0:9545:9545/tcp ghcr.io/hyperledger/cactus-fabric-all-in-one:v1.0.0-rc.2
-```
-
-**Terminal Window 2 (Cactus API Server)**
-```sh
-docker run \
-  --network host \
-  --rm \
-  --publish 3000:3000 \
-  --publish 4000:4000 \
-  --env PLUGINS='[{"packageName": "@hyperledger/cactus-plugin-ledger-connector-fabric", "type": "org.hyperledger.cactus.plugin_import_type.LOCAL", "action": "org.hyperledger.cactus.plugin_import_action.INSTALL",  "options": {"instanceId": "some-unique-fabric-connector-instance-id", "dockerBinary": "usr/local/bin/docker","cliContainerEnv": {
-    "CORE_PEER_LOCALMSPID": "Org1MSP",
-    "CORE_PEER_ADDRESS": "peer0.org1.example.com:7051",
-    "CORE_PEER_MSPCONFIGPATH":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
-    "CORE_PEER_TLS_ROOTCERT_FILE":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt",
-    "ORDERER_TLS_ROOTCERT_FILE":
-      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
-  },
-  "discoveryOptions": {
-    "enabled": true,
-    "asLocalhost": true
-  }
-  }}}]' \
-  cplcb
-```
-
-**Terminal Window 3 (curl - replace eth accounts as needed)**
-```sh
-curl --location --request POST 'http://127.0.0.1:4000/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-fabric/run-transaction' \
---header 'Content-Type: application/json' \
---data-raw '{
-    channelName: "mychannel",
-    contractName: "contract-example";
-    invocationType: "FabricContractInvocationType.SEND";
-    methodName: "example"
-}'
-```
-
-The above should produce a response that looks similar to this:
-
-```json
-{
-    "success": true,
-    "data": {
-        "transactionReceipt": {
-            "blockHash": "0x7c97c038a5d3bd84613fe23ed442695276d5d2df97f4e7c4f10ca06765033ffd",
-            "blockNumber": 1218,
-            "contractAddress": null,
-            "cumulativeGasUsed": 21000,
-            "from": "0x627306090abab3a6e1400e9345bc60c78a8bef57",
-            "gasUsed": 21000,
-            "logs": [],
-            "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-            "status": true,
-            "to": "0xf17f52151ebef6c7334fad080c5704d77216b732",
-            "transactionHash": "0xc7fcb46c735bdc696d500bfc70c72595a2b8c31813929e5c61d9a5aec3376d6f",
-            "transactionIndex": 0
-        }
-    }
-}
-```
-
-
 
 ## 4. Prometheus Exporter
 

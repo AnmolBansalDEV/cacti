@@ -9,7 +9,6 @@
     "Blockchain",
     "Distributed Ledger Technology"
   ],
-  "type": "module",
   "homepage": "https://github.com/hyperledger/cacti#readme",
   "bugs": {
     "url": "https://github.com/hyperledger/cacti/issues"
@@ -41,6 +40,7 @@
       "email": "anmolbansal1807@gmail.com"
     }
   ],
+  "type": "module",
   "main": "dist/lib/main/typescript/index.js",
   "module": "dist/lib/main/typescript/index.js",
   "browser": "dist/cactus-plugin-ledger-connector-polkadot.web.umd.js",
@@ -49,19 +49,19 @@
     "dist/*"
   ],
   "scripts": {
+    "codegen": "run-p 'codegen:*'",
+    "codegen:openapi": "npm run generate-sdk",
+    "generate-sdk": "openapi-generator-cli generate -i ./src/main/json/openapi.json -g typescript-axios -o ./src/main/typescript/generated/openapi/typescript-axios/ --reserved-words-mappings protected=protected",
     "lint": "tslint tests/*.ts -t verbose",
     "lint-fix": "tslint --fix tests/*.ts -t verbose",
-    "generate-sdk": "openapi-generator-cli generate -i ./src/main/json/openapi.json -g typescript-axios -o ./src/main/typescript/generated/openapi/typescript-axios/ --reserved-words-mappings protected=protected",
-    "codegen:openapi": "npm run generate-sdk",
-    "codegen": "run-p 'codegen:*'",
     "watch": "npm-watch",
     "webpack": "npm-run-all webpack:dev webpack:prod",
     "webpack:dev": "npm-run-all webpack:dev:node webpack:dev:web",
-    "webpack:dev:web": "webpack --env=dev --target=web --config ../../webpack.config.js",
     "webpack:dev:node": "webpack --env=dev --target=node --config ../../webpack.config.js",
+    "webpack:dev:web": "webpack --env=dev --target=web --config ../../webpack.config.js",
     "webpack:prod": "npm-run-all webpack:prod:node webpack:prod:web",
-    "webpack:prod:web": "webpack --env=prod --target=web --config ../../webpack.config.js",
-    "webpack:prod:node": "webpack --env=prod --target=node --config ../../webpack.config.js"
+    "webpack:prod:node": "webpack --env=prod --target=node --config ../../webpack.config.js",
+    "webpack:prod:web": "webpack --env=prod --target=web --config ../../webpack.config.js"
   },
   "dependencies": {
     "@hyperledger/cactus-common": "2.0.0-alpha.2",
@@ -71,6 +71,7 @@
     "@polkadot/api-contract": "10.9.1",
     "@polkadot/rpc-provider": "10.9.1",
     "@polkadot/types": "10.9.1",
+    "@polkadot/util": "12.6.2",
     "bl": "5.0.0",
     "eslint": "7.21.0",
     "express": "4.17.1",
@@ -89,7 +90,7 @@
     "uuid": "8.3.2"
   },
   "devDependencies": {
-    "@hyperledger/cactus-plugin-keychain-memory": "2.0.0-alpha.1",
+    "@hyperledger/cactus-plugin-keychain-memory": "2.0.0-alpha.2",
     "@hyperledger/cactus-test-tooling": "2.0.0-alpha.2",
     "@types/express": "4.17.19",
     "@types/http-errors": "2.0.4",

@@ -3,7 +3,6 @@ import { Server as SecureServer } from "https";
 import { Express } from "express";
 import { ApiPromise, Keyring } from "@polkadot/api";
 import { WsProvider } from "@polkadot/rpc-provider/ws";
-import { RuntimeError } from "run-time-error";
 import { WeightV2 } from "@polkadot/types/interfaces";
 import { CodePromise, Abi, ContractPromise } from "@polkadot/api-contract";
 import { isHex, stringCamelCase } from "@polkadot/util";
