@@ -1,6 +1,6 @@
-import { Express, Request, Response } from "express";
+import type { Express, Request, Response } from "express";
 
-import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
+import { handleRestEndpointException, registerWebServiceEndpoint } from "@hyperledger/cactus-core";
 
 import OAS from "../../json/openapi.json";
 
@@ -16,7 +16,6 @@ import {
   LoggerProvider,
   Checks,
   IAsyncProvider,
-  safeStringifyException,
 } from "@hyperledger/cactus-common";
 
 import { PluginLedgerConnectorPolkadot } from "../plugin-ledger-connector-polkadot";
@@ -30,18 +29,22 @@ export class GetPrometheusMetricsEndpoint
   implements IWebServiceEndpoint
 {
   private readonly log: Logger;
-
+  public static readonly CLASS_NAME = "GetPrometheusExporterEndpoint";
   constructor(
     public readonly options: IGetPrometheusMetricsEndpointOptions,
   ) {
-    const fnTag = "GetPrometheusExporterEndpoint#constructor()";
+    const fnTag = `${this.className}#constructor()`;
 
     Checks.truthy(options, `${fnTag} options`);
     Checks.truthy(options.connector, `${fnTag} options.connector`);
 
-    const label = "get-prometheus-exporter-metrics-endpoint";
+    const label = this.className;;
     const level = options.logLevel || "INFO";
     this.log = LoggerProvider.getOrCreate({ label, level });
+  }
+
+  public get className(): string {
+    return GetPrometheusMetricsEndpoint.CLASS_NAME;
   }
 
   getAuthorizationOptionsProvider(): IAsyncProvider<IEndpointAuthzOptions> {
@@ -84,7 +87,8 @@ export class GetPrometheusMetricsEndpoint
   }
 
   async handleRequest(req: Request, res: Response): Promise<void> {
-    const fnTag = "GetPrometheusExporterMetrics#handleRequest()";
+    const fnTag = `${this.className}#handleRequest()`;
+    const reqTag = `${this.getVerbLowerCase()} - ${this.getPath()}`;
     const verbUpper = this.getVerbLowerCase().toUpperCase();
     this.log.debug(`${verbUpper} ${this.getPath()}`);
 
@@ -94,11 +98,8 @@ export class GetPrometheusMetricsEndpoint
       res.status(200);
       res.send(resBody);
     } catch (ex) {
-      this.log.error(`${fnTag} failed to serve request`, ex);
-      res.status(500).json({
-        message: "Internal Server Error",
-        error: safeStringifyException(ex),
-      });
+      const errorMsg = `${reqTag} ${fnTag} Failed to get Prometheus Exporter Metrics:`;
+      handleRestEndpointException({ errorMsg, log: this.log, error: ex, res });
     }
   }
 }

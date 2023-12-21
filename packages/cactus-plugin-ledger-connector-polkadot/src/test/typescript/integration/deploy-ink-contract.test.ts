@@ -7,7 +7,6 @@ import { SubstrateTestLedger } from "../../../../../cactus-test-tooling/src/main
 import metadata from "../../rust/fixtures/ink/metadata.json";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
-import test, { Test } from "tape-promise/tape";
 import { pruneDockerAllIfGithubAction } from "@hyperledger/cactus-test-tooling";
 import express from "express";
 import http from "http";
@@ -20,79 +19,84 @@ import { PluginKeychainMemory } from "@hyperledger/cactus-plugin-keychain-memory
 import { PluginRegistry } from "@hyperledger/cactus-core";
 import { AddressInfo } from "net";
 import { Configuration } from "@hyperledger/cactus-core-api";
+import "jest-extended";
 
 const testCase = "deploy contract through all available methods";
-const logLevel: LogLevelDesc = "TRACE";
-const DEFAULT_WSPROVIDER = "ws://127.0.0.1:9944";
-const instanceId = "test-polkadot-connector";
+describe(testCase, () => {
+  const logLevel: LogLevelDesc = "TRACE";
 
-test("BEFORE " + testCase, async (t: Test) => {
-  const pruning = pruneDockerAllIfGithubAction({ logLevel });
-  await t.doesNotReject(pruning, "Pruning didn't throw OK");
-  t.end();
-});
-
-test(testCase, async (t: Test) => {
+  const DEFAULT_WSPROVIDER = "ws://127.0.0.1:9944";
+  const instanceId = "test-polkadot-connector";
   const ledgerOptions = {
     publishAllPorts: false,
     logLevel: logLevel,
     emitContainerLogs: true,
   };
-
-  const tearDown = async () => {
-    await ledger.stop();
-    await plugin.shutdownConnectionToSubstrate();
-    await pruneDockerAllIfGithubAction({ logLevel });
-  };
-
-  test.onFinish(tearDown);
   const ledger = new SubstrateTestLedger(ledgerOptions);
-  await ledger.start();
-  t.ok(ledger);
-  const keychainEntryKey = uuidv4();
-  const keychainEntryValue = "//Bob";
-  const keychainPlugin = new PluginKeychainMemory({
-    instanceId: uuidv4(),
-    keychainId: uuidv4(),
-    // pre-provision keychain with mock backend holding the private key of the
-    // test account that we'll reference while sending requests with the
-    // signing credential pointing to this keychain entry.
-    backend: new Map([[keychainEntryKey, keychainEntryValue]]),
-    logLevel,
-  });
-  const connectorOptions: IPluginLedgerConnectorPolkadotOptions = {
-    logLevel: logLevel,
-    pluginRegistry: new PluginRegistry({ plugins: [keychainPlugin] }),
-    wsProviderUrl: DEFAULT_WSPROVIDER,
-    instanceId: instanceId,
-  };
-  const plugin = new PluginLedgerConnectorPolkadot(connectorOptions);
-  await plugin.createAPI();
   const expressApp = express();
-
   expressApp.use(express.json());
   expressApp.use(express.urlencoded({ extended: false }));
-
   const server = http.createServer(expressApp);
-  const listenOptions: IListenOptions = {
-    hostname: "0.0.0.0",
-    port: 0,
-    server,
-  };
-  const addressInfo = (await Servers.listen(listenOptions)) as AddressInfo;
-  test.onFinish(async () => await Servers.shutdown(server));
+  let addressInfo: AddressInfo,
+    address: string,
+    port: number,
+    apiHost: string,
+    plugin: PluginLedgerConnectorPolkadot,
+    keychainEntryKey: string,
+    keychainEntryValue: string,
+    keychainPlugin: PluginKeychainMemory,
+    apiClient: PolkadotApi,
+    apiConfig: Configuration;
 
-  const { address, port } = addressInfo;
-  const apiHost = `http://${address}:${port}`;
+  beforeAll(async () => {
+    const pruning = pruneDockerAllIfGithubAction({ logLevel });
+    await expect(pruning).toResolve();
+  });
+  afterAll(async () => {
+    await ledger.stop();
+    await plugin.shutdownConnectionToSubstrate();
+  });
+  afterAll(async () => {
+    const pruning = pruneDockerAllIfGithubAction({ logLevel });
+    await expect(pruning).resolves.toBeTruthy();
+  });
+  afterAll(async () => await Servers.shutdown(server));
+  beforeAll(async () => {
+    await ledger.start();
+    expect(ledger).toBeTruthy();
+    keychainEntryKey = uuidv4();
+    keychainEntryValue = "//Bob";
+    keychainPlugin = new PluginKeychainMemory({
+      instanceId: uuidv4(),
+      keychainId: uuidv4(),
+      // pre-provision keychain with mock backend holding the private key of the
+      // test account that we'll reference while sending requests with the
+      // signing credential pointing to this keychain entry.
+      backend: new Map([[keychainEntryKey, keychainEntryValue]]),
+      logLevel,
+    });
+    const connectorOptions: IPluginLedgerConnectorPolkadotOptions = {
+      logLevel: logLevel,
+      pluginRegistry: new PluginRegistry({ plugins: [keychainPlugin] }),
+      wsProviderUrl: DEFAULT_WSPROVIDER,
+      instanceId: instanceId,
+    };
+    plugin = new PluginLedgerConnectorPolkadot(connectorOptions);
+    await plugin.createAPI();
 
-  const apiConfig = new Configuration({ basePath: apiHost });
-  const apiClient = new PolkadotApi(apiConfig);
-  await plugin.registerWebServices(expressApp);
-  await plugin.getOrCreateWebServices();
-  if (!plugin.api) {
-    t.fail("failed to create api instance");
-    return;
-  }
+    const listenOptions: IListenOptions = {
+      hostname: "0.0.0.0",
+      port: 0,
+      server,
+    };
+    addressInfo = await Servers.listen(listenOptions);
+    ({ address, port } = addressInfo);
+    apiHost = `http://${address}:${port}`;
+    apiConfig = new Configuration({ basePath: apiHost });
+    apiClient = new PolkadotApi(apiConfig);
+    await plugin.registerWebServices(expressApp);
+    await plugin.getOrCreateWebServices();
+  });
   const rawWasm = fs.readFileSync(
     "packages/cactus-plugin-ledger-connector-polkadot/src/test/rust/fixtures/ink/flipper.wasm",
   );
@@ -102,7 +106,7 @@ test(testCase, async (t: Test) => {
     refTime,
     proofSize,
   };
-  test("deploy contract with pre-signed TX", async (t2: Test) => {
+  test("deploy contract with pre-signed TX", async () => {
     const result = apiClient.deployContractInk({
       wasm: rawWasm.toString("base64"),
       metadata: JSON.stringify(metadata),
@@ -112,10 +116,9 @@ test(testCase, async (t: Test) => {
       web3SigningCredential: { type: "NONE" },
       params: [false],
     });
-    await t2.rejects(result, "cannot deploy contract with pre signed TX");
-    t2.end();
+    await expect(result).rejects.toHaveProperty(["response", "status"], 400);
   });
-  test("deploy contract using passing mnemonic string", async (t3: Test) => {
+  test("deploy contract using passing mnemonic string", async () => {
     const result = await apiClient.deployContractInk({
       wasm: rawWasm.toString("base64"),
       metadata: JSON.stringify(metadata),
@@ -125,12 +128,11 @@ test(testCase, async (t: Test) => {
       web3SigningCredential: { type: "MNEMONIC_STRING", mnemonic: "//Alice" },
       params: [false],
     });
-    t3.ok(result);
-    t3.ok(result.data.success);
-    t3.ok(result.data.contractAddress);
-    t3.end();
+    expect(result).toBeTruthy();
+    expect(result.data.success).toBeTrue;
+    expect(result.data.contractAddress).toBeTruthy();
   });
-  test("deploy contract using passing cactus keychain ref", async (t4: Test) => {
+  test("deploy contract using passing cactus keychain ref", async () => {
     const result = await apiClient.deployContractInk({
       wasm: rawWasm.toString("base64"),
       metadata: JSON.stringify(metadata),
@@ -144,10 +146,8 @@ test(testCase, async (t: Test) => {
       },
       params: [false],
     });
-    t4.ok(result);
-    t4.ok(result.data.success);
-    t4.ok(result.data.contractAddress);
-    t4.end();
+    expect(result).toBeTruthy();
+    expect(result.data.success).toBeTrue;
+    expect(result.data.contractAddress).toBeTruthy();
   });
-  t.end();
 });

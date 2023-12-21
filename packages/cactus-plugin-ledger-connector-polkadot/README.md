@@ -1,67 +1,343 @@
-# `@hyperledger/cactus-plugin-ledger-connector-polkadot`
+# `@hyperledger/cactus-plugin-ledger-connector-polkadot` <!-- omit in toc -->
+
+## Table of Contents <!-- omit in toc -->
+
+- [1. Usage](#1-usage)
+  - [1.1. Installation](#11-installation)
+  - [1.2. Using as a Library](#12-using-as-a-library)
+  - [1.3. Using Via The API Client](#13-using-via-the-api-client)
+- [2. Architecture](#2-architecture)
+  - [2.1. run-transaction-endpoint](#21-run-transaction-endpoint)
+- [3. Containerization](#3-containerization)
+  - [3.1. Building/running the container image locally](#31-buildingrunning-the-container-image-locally)
+  - [3.2. Running the container](#32-running-the-container)
+  - [3.3. Testing API calls with the container](#33-testing-api-calls-with-the-container)
+- [4. Prometheus Exporter](#4-prometheus-exporter)
+  - [4.1. Usage Prometheus](#41-usage-prometheus)
+  - [4.2. Prometheus Integration](#42-prometheus-integration)
+  - [4.3. Helper code](#43-helper-code)
+    - [4.3.1. response.type.ts](#431-responsetypets)
+    - [4.3.2. data-fetcher.ts](#432-data-fetcherts)
+    - [4.3.3. metrics.ts](#433-metricsts)
+- [5. Contributing](#5-contributing)
+- [6. License](#6-license)
+- [7. Acknowledgments](#7-acknowledgments)
 
 
-The Polkadot Connector provides functionality that enables any permissioned blockchain (as long as it is supported by Hyperledger Cactus) to connect to the Polkadot network and perform monetary trans- actions to the latter. Besides this, the connector provides methods for these blockchains to deploy and interact with smart contracts in the network.
+## 1. Usage
 
-Our connector in Hyperledger Cactus uses three different API’s to communicate with the Polkadot network: ”@polkadot/api” (which has the base API functionality), ”@polkadot/api-contracts” (which con- tains the API specific for smart contract interaction) and ”@polkadot/types” (which encompasses specific
-Polkadot types).
+This plugin provides a way to interact with Substrate networks.
+Using this one can perform:
+* Deploy smart contracts (ink! contract).
+* Execute transactions on the ledger.
+* Invoke ink! contract functions.
 
-### Interfaces
-Prior to diving into the main functions, we present the interfaces that are either fed as input (requests)
-or returned as output (responses) in those functions:
+The above functionality can either be accessed by importing the plugin directly as a library (embedding) or by hosting it as a REST API through the [Cactus API server](https://www.npmjs.com/package/@hyperledger/cactus-cmd-api-server)
 
-#### DeployContractInkBytecodeRequest
+We also publish the [Cactus API server as a container image](https://github.com/hyperledger/cactus/pkgs/container/cactus-cmd-api-server) to the GitHub Container Registry that you can run easily with a one liner.
+The API server is also embeddable in your own NodeJS project if you choose to do so.
 
-A request that encompasses the attributes required to de- ploy a specific ink! smart contract in Polkadot. These are:
-– wasm-AUint8Arrayobject(atypedarrayof8-bitunsignedintegervalues)whichcorresponds to a WASM binary file, generated after building the smart contract code;
-– abi - An AnyJson object (can be a string, number, boolean or any type of json object) cor- responding to the smart contract’s Application Binary Interface (ABI), which describes the interfaces that can be used to interact with the contract;
-– endowment - A positive number which corresponds to the balance to transfer to the newly created smart contract;
-– gasLimit - A positive number which corresponds to the maximum gas the caller is willing to spend when executing the smart contract’s constructor;
-– params - An optional parameter of type Array <Unknown>, corresponding to any parameters that possibly need to be supplied to the smart contract’s constructor
+### 1.1. Installation
 
-#### DeployContractInkBytecodeResponse
- A response returned by the connector which provides in- formation on the success of the smart contract’s deployment. It contains only one attribute, suc- cess, a boolean value with the value ”true” in case the smart contract was deployed, and ”false” otherwise.
+**npm**
 
- #### ReadStorageRequest
-A request that contains attributes necessary for reading the storage of a smart contract. The latter are:
-– account - A string that corresponds to the Polkadot account which wants to perform the read request. This account signs the transaction encoding the read operation;
-– gasLimit - A positive number which corresponds to the maximum gas the caller is willing to spend when executing the smart contract’s constructor;
-– read function - A string corresponding to the name of the read function for the specific smart contract;
-– params - An optional Array <Unknown>, corresponding to any parameters that possibly need to be supplied to the smart contract’s read function.
+```sh
+npm install @hyperledger/cactus-plugin-ledger-connector-polkadot
+```
 
-#### ReadStorageResponse
-A response returned by the connector which provides information on the success of the read operation. It encompasses the following attributes:
-– success - A boolean with the value ”true” in case the smart contract was deployed, and ”false” otherwise;
-– output - An optional parameter of type AnyJson, which corresponds to the output of the read operation (only existing in case the operation was successful).
+**yarn**
 
-#### WriteStorageRequest
-A request that contains attributes necessary for writing in the storage of a smart contract. These are similar to the attributes in a ReadStorageRequest:
-– account - A string that corresponds to the Polkadot account which wants to perform the write request. This account signs the transaction encoding the read operation;
-– gasLimit - A positive number which corresponds to the maximum gas the caller is willing to spend when executing the smart contract’s constructor;
-– write function - A string corresponding to the name of the write function for the specific smart contract;
-– params - An optional Array <Unknown>, corresponding to any parameters that possibly need to be supplied to the smart contract’s write function.
+```sh
+yarn add @hyperledger/cactus-plugin-ledger-connector-polkadot
+```
 
-#### WriteStorageResponse
- A response returned by the connector which provides information on the success of the write operation. It contains only one attribute, success, a boolean value with the value ”true” in case the smart contract was deployed, and ”false” otherwise.
+### 1.2. Using as a Library
 
- ### Methods
+```typescript
+import {
+  PluginLedgerConnectorPolkadot,
+} from "@hyperledger/cactus-plugin-ledger-connector-polkadot";
 
-Leveraging the aforementioned interfaces, we present the most relevant connector functions for our work:
+const plugin = new PluginLedgerConnectorPolkadot({
+  // See test cases for exact details on what parameters are needed
+});
 
-#### deployContract
-A function that receives a DeployContractInkBytecodeRequest, returns a De- ployContractInkBytecodeResponse and whose purpose is to deploy a smart contract given the above-mentioned parameters. The function throws an error in case the smart contract deployment fails. Otherwise, it stores the contract’s ABI and code and sets success = true.
+const req: RunTransactionRequest = {
+  // See tests for specific examples on request properties
+};
+
+try {
+  const res = await plugin.transact(req);
+} catch (ex: Error) {
+  // Make sure to handle errors gracefully (which is dependent on your use-case)
+  console.error(ex);
+  throw ex;
+}
+```
+
+### 1.3. Using Via The API Client
+
+**Prerequisites**
+- A running Substrate ledger (network)
+- You have a running Cactus API server on `$HOST:$PORT` with the Polkadot connector plugin installed on it (and the latter configured to have access to the Substrate ledger from point 1)
+
+```typescript
+import {
+  PluginLedgerConnectorPolkadot,
+  DefaultApi as PolkadotApi,
+} from "@hyperledger/cactus-plugin-ledger-connector-polkadot";
+
+// Step zero is to deploy your Substrate ledger and the Cactus API server
+
+const apiHost = `http://${address}:${port}`;
+
+const apiConfig = new Configuration({ basePath: apiHost });
+
+const apiClient = new PolkadotApi(apiConfig);
+
+const req: RunTransactionRequest = {
+  // See tests for specific examples on request properties
+};
+
+try {
+  const res = await apiClient.runTransaction(req);
+} catch (ex: Error) {
+  // Make sure to handle errors gracefully (which is dependent on your use-case)
+  console.error(ex);
+  throw ex;
+}
+```
+## 2. Architecture
+The sequence diagrams for various endpoints are mentioned below
+
+### 2.1. run-transaction-endpoint
+
+![run-transaction-endpoint sequence diagram](docs/architecture/images/run-transaction-endpoint.png)
+The above diagram shows the sequence diagram of run-transaction-endpoint. User A (One of the many Users) interacts with the API Client which in turn, calls the API server. API server then executes transact() method which is explained in detailed in the subsequent diagrams.
+![run-transaction-endpoint transact() method](docs/architecture/images/run-transaction-endpoint-transact.png)
+The above diagram shows the sequence diagram of transact() method of the PluginLedgerConnectorPolkadot class. The caller to this function, which in reference to the above sequence diagram is API server, sends RunTransactionRequest object as an argument to the transact() method. Based on the type of Web3SigningCredentialType, corresponding responses are sent back to the caller.  
+![run-transaction-endpoint transactCactusKeychainRef() method](docs/architecture/images/run-transaction-endpoint-transact-cactuskeychainref.png)
+The above diagram shows transactCactusKeychainReference() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is CACTUSKEYCHAINREF. This method inturn calls transactMnemonicString() which calls the signAndSend() method of the Polkadot library. 
+![runtransaction-endpoint transactMnemonicString() method](docs/architecture/images/run-transaction-endpoint-transact-mnemonicstring.png)
+The above diagram shows transactMnemonicString() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is MNEMONICSTRING. This method then calls the signAndSend() method of the Polkadot library.
+![run-transaction-endpoint transactSigned() method](docs/architecture/images/run-transaction-endpoint-transact-signed.png)
+The above diagram shows transactSigned() method being called by the transact() method of the PluginLedgerConnector class when the Web3SigningCredentialType is NONE. This method calls the api.rpc.author.submitAndWatchExtrinsic() of the Polkadot library.
 
 
-#### readStorage
-A function that receives a ReadStorageRequest, returns a ReadStorageResponse and whose purpose is to perform a read operation on a smart contract given the attributes of the request. The function throws an error in case the operation fails or, in case the result is a falsy value, returns success with the value ”false”. Otherwise, it returns the attribute success with the value ”true”, along with the retrieved output of the read function.
+## 3. Containerization
+### 3.1. Building/running the container image locally
 
-#### writeStorage
-A function that receives a WriteStorageRequest, returns a WriteStorageResponse and whose purpose is to perform a write operation on a smart contract given the attributes of the request. The function throws an error in case the operation fails or, in case the result is a falsy value, returns success with the value ”false”. Otherwise, it returns the attribute success with the value ”true”.
+In the Cactus project root say:
 
-Besides these functions, as presented before, the connector presents functionality to send monetary transactions to Polkadot. It also leverages a metrics collection and alerting tool, Prometheus that stores the number of transaction performed.
+```sh
+DOCKER_BUILDKIT=1 docker build -f ./packages/cactus-plugin-ledger-connector-polkadot/Dockerfile . -t cplcb
+```
+
+Build with a specific version of the npm package:
+```sh
+DOCKER_BUILDKIT=1 docker build --build-arg NPM_PKG_VERSION=0.4.1 -f ./packages/cactus-plugin-ledger-connector-polkadot/Dockerfile . -t cplcb
+```
+
+### 3.2. Running the container
+
+Launch container with plugin configuration as an **environment variable**:
+```sh
+docker run \
+  --rm \
+  --publish 3000:3000 \
+  --publish 4000:4000 \
+  --env PLUGINS='[{"packageName": "@hyperledger/cactus-plugin-ledger-connector-fabric", "type": "org.hyperledger.cactus.plugin_import_type.LOCAL", "action": "org.hyperledger.cactus.plugin_import_action.INSTALL",  "options": {"instanceId": "some-unique-fabric-connector-instance-id", "dockerBinary": "usr/local/bin/docker","cliContainerEnv": {
+    "CORE_PEER_LOCALMSPID": "Org1MSP",
+    "CORE_PEER_ADDRESS": "peer0.org1.example.com:7051",
+    "CORE_PEER_MSPCONFIGPATH":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+    "CORE_PEER_TLS_ROOTCERT_FILE":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt",
+    "ORDERER_TLS_ROOTCERT_FILE":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+  },
+  "discoveryOptions": {
+    "enabled": true,
+    "asLocalhost": true
+  }
+  }}}]' \
+  cplcb
+```
+
+Launch container with plugin configuration as a **CLI argument**:
+```sh
+docker run \
+  --rm \
+  --publish 3000:3000 \
+   --publish 4000:4000 \
+  cplcb \
+    ./node_modules/.bin/cactusapi \
+    --plugins='[{"packageName": "@hyperledger/cactus-plugin-ledger-connector-fabric", "type": "org.hyperledger.cactus.plugin_import_type.LOCAL", "action": "org.hyperledger.cactus.plugin_import_action.INSTALL",  "options": {"instanceId": "some-unique-fabric-connector-instance-id", "dockerBinary": "usr/local/bin/docker","cliContainerEnv": {
+    "CORE_PEER_LOCALMSPID": "Org1MSP",
+    "CORE_PEER_ADDRESS": "peer0.org1.example.com:7051",
+    "CORE_PEER_MSPCONFIGPATH":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+    "CORE_PEER_TLS_ROOTCERT_FILE":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt",
+    "ORDERER_TLS_ROOTCERT_FILE":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+  },
+  "discoveryOptions": {
+    "enabled": true,
+    "asLocalhost": true
+  }
+  }}}]'
+```
+
+Launch container with **configuration file** mounted from host machine:
+```sh
+
+echo '[{"packageName": "@hyperledger/cactus-plugin-ledger-connector-fabric", "type": "org.hyperledger.cactus.plugin_import_type.LOCAL", "action": "org.hyperledger.cactus.plugin_import_action.INSTALL",  "options": {"instanceId": "some-unique-fabric-connector-instance-id", "dockerBinary": "usr/local/bin/docker","cliContainerEnv": {
+    "CORE_PEER_LOCALMSPID": "Org1MSP",
+    "CORE_PEER_ADDRESS": "peer0.org1.example.com:7051",
+    "CORE_PEER_MSPCONFIGPATH":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+    "CORE_PEER_TLS_ROOTCERT_FILE":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt",
+    "ORDERER_TLS_ROOTCERT_FILE":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+  },
+  "discoveryOptions": {
+    "enabled": true,
+    "asLocalhost": true
+  }
+  }}}]' > cactus.json
+
+docker run \
+  --rm \
+  --publish 3000:3000 \
+  --publish 4000:4000 \
+  --mount type=bind,source="$(pwd)"/cactus.json,target=/cactus.json \
+  cplcb \
+    ./node_modules/.bin/cactusapi \
+    --config-file=/cactus.json
+```
+
+### 3.3. Testing API calls with the container
+
+Don't have a fabric network on hand to test with? Test or develop against our fabric All-In-One container!
+
+**Terminal Window 1 (Ledger)**
+```sh
+docker run --privileged -p 0.0.0.0:8545:8545/tcp  -p 0.0.0.0:8546:8546/tcp  -p 0.0.0.0:8888:8888/tcp  -p 0.0.0.0:9001:9001/tcp  -p 0.0.0.0:9545:9545/tcp ghcr.io/hyperledger/cactus-fabric-all-in-one:v1.0.0-rc.2
+```
+
+**Terminal Window 2 (Cactus API Server)**
+```sh
+docker run \
+  --network host \
+  --rm \
+  --publish 3000:3000 \
+  --publish 4000:4000 \
+  --env PLUGINS='[{"packageName": "@hyperledger/cactus-plugin-ledger-connector-fabric", "type": "org.hyperledger.cactus.plugin_import_type.LOCAL", "action": "org.hyperledger.cactus.plugin_import_action.INSTALL",  "options": {"instanceId": "some-unique-fabric-connector-instance-id", "dockerBinary": "usr/local/bin/docker","cliContainerEnv": {
+    "CORE_PEER_LOCALMSPID": "Org1MSP",
+    "CORE_PEER_ADDRESS": "peer0.org1.example.com:7051",
+    "CORE_PEER_MSPCONFIGPATH":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+    "CORE_PEER_TLS_ROOTCERT_FILE":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt",
+    "ORDERER_TLS_ROOTCERT_FILE":
+      "/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+  },
+  "discoveryOptions": {
+    "enabled": true,
+    "asLocalhost": true
+  }
+  }}}]' \
+  cplcb
+```
+
+**Terminal Window 3 (curl - replace eth accounts as needed)**
+```sh
+curl --location --request POST 'http://127.0.0.1:4000/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-fabric/run-transaction' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    channelName: "mychannel",
+    contractName: "contract-example";
+    invocationType: "FabricContractInvocationType.SEND";
+    methodName: "example"
+}'
+```
+
+The above should produce a response that looks similar to this:
+
+```json
+{
+    "success": true,
+    "data": {
+        "transactionReceipt": {
+            "blockHash": "0x7c97c038a5d3bd84613fe23ed442695276d5d2df97f4e7c4f10ca06765033ffd",
+            "blockNumber": 1218,
+            "contractAddress": null,
+            "cumulativeGasUsed": 21000,
+            "from": "0x627306090abab3a6e1400e9345bc60c78a8bef57",
+            "gasUsed": 21000,
+            "logs": [],
+            "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "status": true,
+            "to": "0xf17f52151ebef6c7334fad080c5704d77216b732",
+            "transactionHash": "0xc7fcb46c735bdc696d500bfc70c72595a2b8c31813929e5c61d9a5aec3376d6f",
+            "transactionIndex": 0
+        }
+    }
+}
+```
 
 
-## Future Work
--Export endpoints, interfaces, and types to OpenAPI
--Complete and enable most connector endpoints
--Dockerize connector
+
+## 4. Prometheus Exporter
+
+This class creates a Prometheus exporter, which scraps the transactions (total transaction count) for the use cases incorporating the use of Fabric connector plugin.
+
+
+### 4.1. Usage Prometheus
+The Prometheus exporter object is initialized in the `PluginLedgerConnectorPolkadot` class constructor itself, so instantiating the object of the `PluginLedgerConnectorPolkadot` class, gives access to the exporter object.
+You can also initialize the Prometheus exporter object separately and then pass it to the `IPluginLedgerConnectorPolkadotOptions` interface for `PluginLedgerConnectorPolkadot` constructor.
+
+`getPrometheusExporterMetricsEndpoint` function returns the Prometheus exporter metrics, currently displaying the total transaction count, which currently increments every time the `transact()` method of the `PluginLedgerConnectoPolkadot` class is called.
+
+### 4.2. Prometheus Integration
+To use Prometheus with this exporter make sure to install [Prometheus main component](https://prometheus.io/download/).
+Once Prometheus is setup, the corresponding scrape_config needs to be added to the prometheus.yml
+
+```(yaml)
+- job_name: 'polkadot_ledger_connector_exporter'
+  metrics_path: api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-prometheus-exporter-metrics
+  scrape_interval: 5s
+  static_configs:
+    - targets: ['{host}:{port}']
+```
+
+Here the `host:port` is where the Prometheus exporter metrics are exposed. The test cases (For example, packages/cactus-plugin-ledger-connector-polkadot/src/test/typescript/integration/run-transaction.test.ts) exposes it over `0.0.0.0` and a random port(). The random port can be found in the running logs of the test case and looks like (42379 in the below mentioned URL)
+`Metrics URL: http://0.0.0.0:42379/api/v1/plugins/@hyperledger/cactus-plugin-ledger-connector-polkadot/get-prometheus-exporter-metrics`
+
+Once edited, you can start the Prometheus service by referencing the above edited prometheus.yml file.
+On the Prometheus graphical interface (defaulted to http://localhost:9090), choose **Graph** from the menu bar, then select the **Console** tab. From the **Insert metric at cursor** drop down, select **cactus_Polkadot_total_tx_count** and click **execute**
+
+### 4.3. Helper code
+
+#### 4.3.1. response.type.ts
+This file contains the various responses of the metrics.
+
+#### 4.3.2. data-fetcher.ts
+This file contains functions encasing the logic to process the data points
+
+#### 4.3.3. metrics.ts
+This file lists all the Prometheus metrics and what they are used for.
+
+## 5. Contributing
+
+We welcome contributions to Hyperledger Cactus in many forms, and there’s always plenty to do!
+
+Please review [CONTIRBUTING.md](../../CONTRIBUTING.md) to get started.
+
+## 6. License
+
+This distribution is published under the Apache License Version 2.0 found in the [LICENSE](../../LICENSE) file.
+
+## 7. Acknowledgments

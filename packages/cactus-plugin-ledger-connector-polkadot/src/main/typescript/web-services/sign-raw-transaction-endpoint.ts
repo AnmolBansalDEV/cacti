@@ -1,11 +1,10 @@
-import { Express, Request, Response } from "express";
+import type { Express, Request, Response } from "express";
 import {
   Logger,
   LoggerProvider,
   LogLevelDesc,
   Checks,
   IAsyncProvider,
-  safeStringifyException,
 } from "@hyperledger/cactus-common";
 
 import {
@@ -14,7 +13,10 @@ import {
   IEndpointAuthzOptions,
 } from "@hyperledger/cactus-core-api";
 
-import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
+import {
+  handleRestEndpointException,
+  registerWebServiceEndpoint,
+} from "@hyperledger/cactus-core";
 
 import { PluginLedgerConnectorPolkadot } from "../plugin-ledger-connector-polkadot";
 import OAS from "../../json/openapi.json";
@@ -83,6 +85,7 @@ export class SignRawTransactionEndpoint implements IWebServiceEndpoint {
   }
 
   async handleRequest(req: Request, res: Response): Promise<void> {
+    const fnTag = `${this.className}#handleRequest()`;
     const reqTag = `${this.getVerbLowerCase()} - ${this.getPath()}`;
     this.log.debug(reqTag);
     const reqBody = req.body;
@@ -90,11 +93,8 @@ export class SignRawTransactionEndpoint implements IWebServiceEndpoint {
       const resBody = await this.opts.connector.signTransaction(reqBody);
       res.json(resBody);
     } catch (ex) {
-      this.log.error(`Crash while serving ${reqTag}`, ex);
-      res.status(500).json({
-        message: "Internal Server Error",
-        error: safeStringifyException(ex),
-      });
+      const errorMsg = `${reqTag} ${fnTag} Failed to sign Transaction:`;
+      handleRestEndpointException({ errorMsg, log: this.log, error: ex, res });
     }
   }
 }

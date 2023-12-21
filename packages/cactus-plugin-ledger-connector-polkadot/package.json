@@ -2,11 +2,48 @@
   "name": "@hyperledger/cactus-plugin-ledger-connector-polkadot",
   "version": "2.0.0-alpha.2",
   "description": "Allows Cactus nodes to connect to a Substrate ledger.",
+  "keywords": [
+    "Hyperledger",
+    "Cactus",
+    "Integration",
+    "Blockchain",
+    "Distributed Ledger Technology"
+  ],
+  "type": "module",
+  "homepage": "https://github.com/hyperledger/cacti#readme",
+  "bugs": {
+    "url": "https://github.com/hyperledger/cacti/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyperledger/cacti.git"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Hyperledger Cactus Contributors",
+    "email": "cactus@lists.hyperledger.org",
+    "url": "https://www.hyperledger.org/use/cactus"
+  },
+  "contributors": [
+    {
+      "name": "Please add yourself to the list of contributors",
+      "email": "your.name@example.com",
+      "url": "https://example.com"
+    },
+    {
+      "name": "Catarina Pedreira"
+    },
+    {
+      "name": "Rafael Belchior"
+    },
+    {
+      "name": "Anmol Bansal",
+      "email": "anmolbansal1807@gmail.com"
+    }
+  ],
   "main": "dist/lib/main/typescript/index.js",
-  "mainMinified": "dist/cactus-plugin-ledger-connector-polkadot.node.umd.min.js",
-  "browser": "dist/cactus-plugin-ledger-connector-polkadot.web.umd.js",
-  "browserMinified": "dist/cactus-plugin-ledger-connector-polkadot.web.umd.min.js",
   "module": "dist/lib/main/typescript/index.js",
+  "browser": "dist/cactus-plugin-ledger-connector-polkadot.web.umd.js",
   "types": "dist/types/main/typescript/index.d.ts",
   "files": [
     "dist/*"
@@ -26,54 +63,6 @@
     "webpack:prod:web": "webpack --env=prod --target=web --config ../../webpack.config.js",
     "webpack:prod:node": "webpack --env=prod --target=node --config ../../webpack.config.js"
   },
-  "watch": {
-    "codegen:openapi": {
-      "patterns": [
-        "./src/main/json/openapi.json"
-      ]
-    }
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "engines": {
-    "node": ">=10",
-    "npm": ">=6"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/hyperledger/cactus.git"
-  },
-  "keywords": [
-    "Hyperledger",
-    "Cactus",
-    "Integration",
-    "Blockchain",
-    "Distributed Ledger Technology"
-  ],
-  "author": {
-    "name": "Hyperledger Cactus Contributors",
-    "email": "cactus@lists.hyperledger.org",
-    "url": "https://www.hyperledger.org/use/cactus"
-  },
-  "contributors": [
-    {
-      "name": "Please add yourself to the list of contributors",
-      "email": "your.name@example.com",
-      "url": "https://example.com"
-    },
-    {
-      "name": "Catarina Pedreira"
-    },
-    {
-      "name": "Rafael Belchior"
-    }
-  ],
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/hyperledger/cactus/issues"
-  },
-  "homepage": "https://github.com/hyperledger/cactus#readme",
   "dependencies": {
     "@hyperledger/cactus-common": "2.0.0-alpha.2",
     "@hyperledger/cactus-core": "2.0.0-alpha.2",
@@ -87,6 +76,7 @@
     "express": "4.17.1",
     "express-openapi-validator": "4.13.1",
     "form-data": "4.0.0",
+    "http-errors": "2.0.0",
     "http-status-codes": "2.1.4",
     "joi": "14.3.1",
     "multer": "1.4.2",
@@ -102,6 +92,7 @@
     "@hyperledger/cactus-plugin-keychain-memory": "2.0.0-alpha.1",
     "@hyperledger/cactus-test-tooling": "2.0.0-alpha.2",
     "@types/express": "4.17.19",
+    "@types/http-errors": "2.0.4",
     "@types/joi": "14.3.4",
     "@types/multer": "1.4.7",
     "@types/ssh2": "0.5.44",
@@ -110,5 +101,21 @@
     "@types/uuid": "8.3.1",
     "axios": "0.22.0",
     "supertest": "6.1.6"
+  },
+  "engines": {
+    "node": ">=10",
+    "npm": ">=6"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "browserMinified": "dist/cactus-plugin-ledger-connector-polkadot.web.umd.min.js",
+  "mainMinified": "dist/cactus-plugin-ledger-connector-polkadot.node.umd.min.js",
+  "watch": {
+    "codegen:openapi": {
+      "patterns": [
+        "./src/main/json/openapi.json"
+      ]
+    }
   }
 }
